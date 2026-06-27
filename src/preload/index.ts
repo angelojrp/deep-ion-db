@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppApi, ConnectionConfig, HistoryInput } from '@shared/types'
+import type { AppApi, ConnectionConfig, HistoryInput, SqlStatement } from '@shared/types'
 
 const api: AppApi = {
   db: {
@@ -8,7 +8,11 @@ const api: AppApi = {
     query: (id: string, sql: string) => ipcRenderer.invoke('db:query', id, sql),
     listTables: (id: string) => ipcRenderer.invoke('db:listTables', id),
     listColumns: (id: string, schema: string, table: string) =>
-      ipcRenderer.invoke('db:listColumns', id, schema, table)
+      ipcRenderer.invoke('db:listColumns', id, schema, table),
+    primaryKeys: (id: string, schema: string, table: string) =>
+      ipcRenderer.invoke('db:primaryKeys', id, schema, table),
+    execBatch: (id: string, statements: SqlStatement[]) =>
+      ipcRenderer.invoke('db:execBatch', id, statements)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

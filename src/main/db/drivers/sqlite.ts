@@ -1,5 +1,12 @@
 import Database from 'better-sqlite3'
-import type { ColumnInfo, ConnectionConfig, Driver, QueryResult, SchemaTable } from '../types'
+import type {
+  ColumnInfo,
+  ConnectionConfig,
+  Driver,
+  QueryResult,
+  SchemaTable,
+  SqlStatement
+} from '../types'
 
 export class SqliteDriver implements Driver {
   private db: Database.Database | null = null
@@ -47,6 +54,25 @@ export class SqliteDriver implements Driver {
       durationMs: performance.now() - start,
       command: 'OK'
     }
+  }
+
+  async primaryKeys(_schema: string, table: string): Promise<string[]> {
+    const quoted = `"${table.replace(/"/g, '""')}"`
+    const rows = this.handle.prepare(`PRAGMA table_info(${quoted})`).all() as {
+      name: string
+      pk: number
+    }[]
+    return rows
+      .filter((r) => r.pk > 0)
+      .sort((a, b) => a.pk - b.pk)
+      .map((r) => r.name)
+  }
+
+  async execBatch(statements: SqlStatement[]): Promise<void> {
+    const tx = this.handle.transaction((items: SqlStatement[]) => {
+      for (const s of items) this.handle.prepare(s.sql).run(...(s.params as never[]))
+    })
+    tx(statements)
   }
 
   async listTables(): Promise<SchemaTable[]> {
