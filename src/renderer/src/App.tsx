@@ -1,4 +1,4 @@
-import { type JSX, useCallback, useEffect, useState } from 'react'
+import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
 import type {
   ConnectionConfig,
   ConnectionSummary,
@@ -8,7 +8,7 @@ import type {
   WsEntry
 } from '@shared/types'
 import Sidebar from './components/Sidebar'
-import SqlEditor from './components/SqlEditor'
+import SqlEditor, { type SqlEditorApi } from './components/SqlEditor'
 import ResultsGrid from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
@@ -61,6 +61,7 @@ export default function App(): JSX.Element {
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
+  const editorApi = useRef<SqlEditorApi | null>(null)
 
   const refreshSaved = useCallback(async () => {
     setSaved(await window.api.conn.list())
@@ -155,9 +156,10 @@ export default function App(): JSX.Element {
       return
     }
     const { id, connectionId, content } = activeTab
+    const sql = editorApi.current?.getRunText()?.trim() || content
     updateTab(id, { running: true, error: null })
     try {
-      const res = await window.api.db.query(connectionId, content)
+      const res = await window.api.db.query(connectionId, sql)
       updateTab(id, { result: res, running: false })
     } catch (e) {
       updateTab(id, {
@@ -286,7 +288,14 @@ export default function App(): JSX.Element {
               >
                 {activeTab?.running ? 'Executando…' : '▶ Executar'}
               </button>
-              <span className="hint">Ctrl/Cmd + Enter</span>
+              <button
+                className="ghost-btn"
+                onClick={() => editorApi.current?.format()}
+                title="Formatar SQL (Ctrl/Cmd + Shift + F)"
+              >
+                Formatar
+              </button>
+              <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
                 value={activeTab?.connectionId ?? ''}
@@ -312,6 +321,8 @@ export default function App(): JSX.Element {
                   onChange={onContentChange}
                   onRun={runQuery}
                   onSave={saveActive}
+                  dialect={activeConn?.kind}
+                  apiRef={editorApi}
                 />
               )}
             </div>
