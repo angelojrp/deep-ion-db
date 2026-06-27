@@ -10,7 +10,7 @@ import type {
 } from '@shared/types'
 import Sidebar from './components/Sidebar'
 import SqlEditor, { type SqlEditorApi } from './components/SqlEditor'
-import ResultsGrid from './components/ResultsGrid'
+import ResultsGrid, { type EditContext } from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
 import HistoryPanel from './components/HistoryPanel'
@@ -29,6 +29,18 @@ interface EditorTab {
   error: string | null
   running: boolean
   dirty: boolean
+  editCtx: EditContext | null
+}
+
+/** Detecta uma tabela única em um SELECT simples (sem JOIN) para edição na grade. */
+function parseTable(sql: string): { schema?: string; table: string } | null {
+  const s = sql.trim().replace(/;+\s*$/, '')
+  if (!/^select\b/i.test(s)) return null
+  if (/\bjoin\b/i.test(s)) return null
+  const m = /\bfrom\s+("?[\w]+"?)(?:\s*\.\s*("?[\w]+"?))?/i.exec(s)
+  if (!m) return null
+  const unq = (x: string): string => x.replace(/"/g, '')
+  return m[2] ? { schema: unq(m[1]), table: unq(m[2]) } : { table: unq(m[1]) }
 }
 
 function baseName(p: string): string {
@@ -51,7 +63,30 @@ function createTab(title: string, kind: TabKind = 'sql'): EditorTab {
     result: null,
     error: null,
     running: false,
-    dirty: false
+    dirty: false,
+    editCtx: null
+  }
+}
+
+/** Monta o contexto de edição (tabela + PK) se a query for editável; senão null. */
+async function computeEditCtx(
+  connectionId: string,
+  kind: ConnectionSummary['kind'] | undefined,
+  sql: string,
+  columns: string[]
+): Promise<EditContext | null> {
+  if (!kind) return null
+  const parsed = parseTable(sql)
+  if (!parsed) return null
+  const schema =
+    parsed.schema ?? (kind === 'sqlite' ? 'main' : kind === 'postgres' ? 'public' : null)
+  if (!schema) return null
+  try {
+    const pk = await window.api.db.primaryKeys(connectionId, schema, parsed.table)
+    const pkCols = pk.every((c) => columns.includes(c)) ? pk : []
+    return { connectionId, kind, schema, table: parsed.table, pkCols }
+  } catch {
+    return null
   }
 }
 
@@ -193,7 +228,8 @@ export default function App(): JSX.Element {
     updateTab(id, { running: true, error: null })
     try {
       const res = await window.api.db.query(connectionId, sql)
-      updateTab(id, { result: res, running: false })
+      const editCtx = await computeEditCtx(connectionId, conn?.kind, sql, res.columns)
+      updateTab(id, { result: res, running: false, editCtx })
       void window.api.hist.add({
         sql,
         connectionName: conn?.name ?? '—',
@@ -207,7 +243,8 @@ export default function App(): JSX.Element {
       updateTab(id, {
         error: e instanceof Error ? e.message : String(e),
         result: null,
-        running: false
+        running: false,
+        editCtx: null
       })
       void window.api.hist.add({
         sql,
@@ -389,7 +426,11 @@ export default function App(): JSX.Element {
               {activeTab?.error ? (
                 <pre className="error">{activeTab.error}</pre>
               ) : (
-                <ResultsGrid result={activeTab?.result ?? null} />
+                <ResultsGrid
+                  result={activeTab?.result ?? null}
+                  edit={activeTab?.editCtx ?? null}
+                  onApplied={runQuery}
+                />
               )}
             </div>
           </div>

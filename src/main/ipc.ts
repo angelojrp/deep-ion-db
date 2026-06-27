@@ -3,7 +3,7 @@ import { DbManager } from './db/manager'
 import { ConnectionStore } from './connectionStore'
 import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
-import type { ConnectionConfig, HistoryInput } from './db/types'
+import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
 
 const manager = new DbManager()
 const store = new ConnectionStore()
@@ -20,6 +20,12 @@ export function registerDbIpc(): void {
   ipcMain.handle('db:listTables', (_e, id: string) => manager.listTables(id))
   ipcMain.handle('db:listColumns', (_e, id: string, schema: string, table: string) =>
     manager.listColumns(id, schema, table)
+  )
+  ipcMain.handle('db:primaryKeys', (_e, id: string, schema: string, table: string) =>
+    manager.primaryKeys(id, schema, table)
+  )
+  ipcMain.handle('db:execBatch', (_e, id: string, statements: SqlStatement[]) =>
+    manager.execBatch(id, statements)
   )
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).

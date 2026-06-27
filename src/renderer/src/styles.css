@@ -559,6 +559,44 @@ table.grid tbody tr:nth-child(even) {
   font-style: italic;
 }
 
+/* Edição na grade */
+.cell-input {
+  width: 100%;
+  min-width: 80px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.cell-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+table.grid td.row-action,
+table.grid th.row-action {
+  width: 28px;
+  text-align: center;
+  padding: 2px;
+}
+
+tr.row-deleted {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+tr.row-new {
+  background: rgba(46, 160, 67, 0.12) !important;
+}
+
+.grid-actions .link:disabled {
+  opacity: 0.5;
+}
+
 /* Modal (histórico) */
 .modal-overlay {
   position: fixed;

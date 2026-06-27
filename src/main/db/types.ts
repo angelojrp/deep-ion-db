@@ -1,5 +1,7 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
+import type { SqlStatement } from '@shared/types'
+
 export type {
   ColumnInfo,
   ConnectionConfig,
@@ -8,6 +10,7 @@ export type {
   QueryResult,
   SavedConnection,
   SchemaTable,
+  SqlStatement,
   Workspace,
   WsEntry
 } from '@shared/types'
@@ -19,4 +22,6 @@ export interface Driver {
   query(sql: string): Promise<QueryResult>
   listTables(): Promise<SchemaTable[]>
   listColumns(schema: string, table: string): Promise<ColumnInfo[]>
+  primaryKeys(schema: string, table: string): Promise<string[]>
+  execBatch(statements: SqlStatement[]): Promise<void>
 }

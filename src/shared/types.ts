@@ -61,6 +61,12 @@ export interface SavedConnection {
   ssl?: boolean
 }
 
+/** Statement parametrizado (placeholders por dialeto) para aplicação transacional. */
+export interface SqlStatement {
+  sql: string
+  params: unknown[]
+}
+
 /** Superfície exposta ao renderer via contextBridge. */
 export interface DbApi {
   connect(config: ConnectionConfig): Promise<{ id: string }>
@@ -68,6 +74,8 @@ export interface DbApi {
   query(id: string, sql: string): Promise<QueryResult>
   listTables(id: string): Promise<SchemaTable[]>
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]>
+  primaryKeys(id: string, schema: string, table: string): Promise<string[]>
+  execBatch(id: string, statements: SqlStatement[]): Promise<void>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */
