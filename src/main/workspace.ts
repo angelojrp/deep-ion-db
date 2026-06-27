@@ -104,6 +104,8 @@ export async function saveAs(defaultName: string, content: string): Promise<stri
     filters: [
       { name: 'SQL', extensions: ['sql'] },
       { name: 'Markdown', extensions: ['md'] },
+      { name: 'CSV', extensions: ['csv'] },
+      { name: 'JSON', extensions: ['json'] },
       { name: 'Todos', extensions: ['*'] }
     ]
   })
