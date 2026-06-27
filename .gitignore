@@ -6,3 +6,6 @@ dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Claude Code — configurações pessoais (não versionar)
+.claude/settings.local.json

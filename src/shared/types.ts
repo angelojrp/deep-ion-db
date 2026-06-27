@@ -41,6 +41,32 @@ export interface ColumnInfo {
   nullable: boolean
 }
 
+/** Resumo de uma conexão ativa para exibição na UI. */
+export interface ConnectionSummary {
+  id: string
+  name: string
+  kind: DbKind
+}
+
+/** Conexão persistida (metadados, sem senha em texto puro). */
+export interface SavedConnection {
+  id: string
+  name: string
+  kind: DbKind
+  host?: string
+  port?: number
+  user?: string
+  database?: string
+  filePath?: string
+  ssl?: boolean
+}
+
+/** Statement parametrizado (placeholders por dialeto) para aplicação transacional. */
+export interface SqlStatement {
+  sql: string
+  params: unknown[]
+}
+
 /** Superfície exposta ao renderer via contextBridge. */
 export interface DbApi {
   connect(config: ConnectionConfig): Promise<{ id: string }>
@@ -48,8 +74,69 @@ export interface DbApi {
   query(id: string, sql: string): Promise<QueryResult>
   listTables(id: string): Promise<SchemaTable[]>
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]>
+  primaryKeys(id: string, schema: string, table: string): Promise<string[]>
+  execBatch(id: string, statements: SqlStatement[]): Promise<void>
+}
+
+/** Gerência de conexões salvas (senha guardada com segurança no main). */
+export interface ConnApi {
+  list(): Promise<SavedConnection[]>
+  save(config: ConnectionConfig): Promise<SavedConnection>
+  remove(id: string): Promise<void>
+  connect(id: string): Promise<{ id: string }>
+}
+
+/** Entrada (arquivo ou pasta) na árvore de um workspace. */
+export interface WsEntry {
+  name: string
+  path: string
+  type: 'file' | 'dir'
+  children?: WsEntry[]
+}
+
+export interface Workspace {
+  root: string
+  tree: WsEntry[]
+}
+
+/** Workspace local: pasta com arquivos .sql/.md, estilo projeto. */
+export interface WsApi {
+  open(): Promise<Workspace | null>
+  current(): Promise<Workspace | null>
+  refresh(): Promise<Workspace | null>
+  read(path: string): Promise<string>
+  write(path: string, content: string): Promise<void>
+  create(dir: string, name: string): Promise<WsEntry>
+  remove(path: string): Promise<void>
+  saveAs(defaultName: string, content: string): Promise<string | null>
+}
+
+/** Entrada do histórico de execução de queries. */
+export interface HistoryEntry {
+  id: string
+  sql: string
+  connectionName: string
+  kind?: DbKind
+  ts: number
+  durationMs: number
+  rowCount: number
+  ok: boolean
+  favorite: boolean
+}
+
+export type HistoryInput = Omit<HistoryEntry, 'id' | 'favorite'>
+
+export interface HistApi {
+  list(): Promise<HistoryEntry[]>
+  add(entry: HistoryInput): Promise<HistoryEntry>
+  toggleFavorite(id: string): Promise<void>
+  remove(id: string): Promise<void>
+  clear(): Promise<void>
 }
 
 export interface AppApi {
   db: DbApi
+  conn: ConnApi
+  ws: WsApi
+  hist: HistApi
 }

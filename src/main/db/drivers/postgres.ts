@@ -1,5 +1,12 @@
 import { Client } from 'pg'
-import type { ColumnInfo, ConnectionConfig, Driver, QueryResult, SchemaTable } from '../types'
+import type {
+  ColumnInfo,
+  ConnectionConfig,
+  Driver,
+  QueryResult,
+  SchemaTable,
+  SqlStatement
+} from '../types'
 
 export class PostgresDriver implements Driver {
   private client: Client
@@ -46,6 +53,29 @@ export class PostgresDriver implements Driver {
         order by table_schema, table_name`
     )
     return res.rows.map((r) => ({ schema: r.schema, name: r.name, type: r.type }))
+  }
+
+  async primaryKeys(schema: string, table: string): Promise<string[]> {
+    const res = await this.client.query(
+      `select a.attname as name
+         from pg_index i
+         join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
+        where i.indrelid = format('%I.%I', $1, $2)::regclass and i.indisprimary
+        order by array_position(i.indkey, a.attnum)`,
+      [schema, table]
+    )
+    return res.rows.map((r) => r.name as string)
+  }
+
+  async execBatch(statements: SqlStatement[]): Promise<void> {
+    try {
+      await this.client.query('BEGIN')
+      for (const s of statements) await this.client.query(s.sql, s.params)
+      await this.client.query('COMMIT')
+    } catch (e) {
+      await this.client.query('ROLLBACK')
+      throw e
+    }
   }
 
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {

@@ -1,4 +1,11 @@
-import type { ColumnInfo, ConnectionConfig, Driver, QueryResult, SchemaTable } from './types'
+import type {
+  ColumnInfo,
+  ConnectionConfig,
+  Driver,
+  QueryResult,
+  SchemaTable,
+  SqlStatement
+} from './types'
 import { PostgresDriver } from './drivers/postgres'
 import { MysqlDriver } from './drivers/mysql'
 import { SqliteDriver } from './drivers/sqlite'
@@ -59,5 +66,13 @@ export class DbManager {
 
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]> {
     return this.get(id).listColumns(schema, table)
+  }
+
+  primaryKeys(id: string, schema: string, table: string): Promise<string[]> {
+    return this.get(id).primaryKeys(schema, table)
+  }
+
+  execBatch(id: string, statements: SqlStatement[]): Promise<void> {
+    return this.get(id).execBatch(statements)
   }
 }

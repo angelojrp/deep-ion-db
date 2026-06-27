@@ -1,5 +1,12 @@
 import mysql from 'mysql2/promise'
-import type { ColumnInfo, ConnectionConfig, Driver, QueryResult, SchemaTable } from '../types'
+import type {
+  ColumnInfo,
+  ConnectionConfig,
+  Driver,
+  QueryResult,
+  SchemaTable,
+  SqlStatement
+} from '../types'
 
 export class MysqlDriver implements Driver {
   private conn: mysql.Connection | null = null
@@ -66,6 +73,29 @@ export class MysqlDriver implements Driver {
       name: r.name,
       type: r.type
     }))
+  }
+
+  async primaryKeys(schema: string, table: string): Promise<string[]> {
+    const [rows] = await this.connection.query(
+      `select column_name as name
+         from information_schema.key_column_usage
+        where table_schema = ? and table_name = ? and constraint_name = 'PRIMARY'
+        order by ordinal_position`,
+      [schema, table]
+    )
+    return (rows as Record<string, string>[]).map((r) => r.name)
+  }
+
+  async execBatch(statements: SqlStatement[]): Promise<void> {
+    const conn = this.connection
+    try {
+      await conn.beginTransaction()
+      for (const s of statements) await conn.execute(s.sql, s.params as never[])
+      await conn.commit()
+    } catch (e) {
+      await conn.rollback()
+      throw e
+    }
   }
 
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {
