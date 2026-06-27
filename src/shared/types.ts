@@ -103,8 +103,32 @@ export interface WsApi {
   saveAs(defaultName: string, content: string): Promise<string | null>
 }
 
+/** Entrada do histórico de execução de queries. */
+export interface HistoryEntry {
+  id: string
+  sql: string
+  connectionName: string
+  kind?: DbKind
+  ts: number
+  durationMs: number
+  rowCount: number
+  ok: boolean
+  favorite: boolean
+}
+
+export type HistoryInput = Omit<HistoryEntry, 'id' | 'favorite'>
+
+export interface HistApi {
+  list(): Promise<HistoryEntry[]>
+  add(entry: HistoryInput): Promise<HistoryEntry>
+  toggleFavorite(id: string): Promise<void>
+  remove(id: string): Promise<void>
+  clear(): Promise<void>
+}
+
 export interface AppApi {
   db: DbApi
   conn: ConnApi
   ws: WsApi
+  hist: HistApi
 }
