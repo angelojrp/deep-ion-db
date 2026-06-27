@@ -1,10 +1,5 @@
 import { type JSX, useMemo } from 'react'
-import {
-  type ColumnDef,
-  flexRender,
-  getCoreRowModel,
-  useReactTable
-} from '@tanstack/react-table'
+import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import type { QueryResult } from '@shared/types'
 
 type Row = Record<string, unknown>
@@ -53,9 +48,7 @@ export default function ResultsGrid({ result }: { result: QueryResult | null }):
             {table.getHeaderGroups().map((hg) => (
               <tr key={hg.id}>
                 {hg.headers.map((h) => (
-                  <th key={h.id}>
-                    {flexRender(h.column.columnDef.header, h.getContext())}
-                  </th>
+                  <th key={h.id}>{flexRender(h.column.columnDef.header, h.getContext())}</th>
                 ))}
               </tr>
             ))}
