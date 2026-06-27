@@ -440,6 +440,16 @@ button.link:hover {
   font-weight: 600;
 }
 
+.ghost-btn {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.ghost-btn:hover:not(:disabled) {
+  background: var(--bg-elev);
+}
+
 .hint {
   color: var(--text-dim);
   font-size: 11px;
