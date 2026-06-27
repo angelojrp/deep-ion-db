@@ -340,9 +340,84 @@ button.link:hover {
 /* Workspace */
 .workspace {
   display: grid;
-  grid-template-rows: auto 1fr 1fr;
+  grid-template-rows: auto auto 1fr 1fr;
   min-width: 0;
   height: 100%;
+}
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 4px 6px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--bg-elev);
+  color: var(--text);
+}
+
+.tab-title {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tab-close:hover {
+  color: var(--error);
+  background: none;
+}
+
+.tab-new {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 15px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.tab-new:hover {
+  background: none;
+  color: var(--text);
+}
+
+.conn-select {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-width: 220px;
 }
 
 .toolbar {
