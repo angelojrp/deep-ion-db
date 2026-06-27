@@ -493,10 +493,31 @@ button.link:hover {
 }
 
 .grid-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 6px 12px;
   color: var(--text-dim);
   font-size: 12px;
   border-bottom: 1px solid var(--border);
+}
+
+.grid-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.grid-actions .link {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 8px;
+  color: var(--text-dim);
+}
+
+.grid-actions .link:hover {
+  color: var(--text);
+  background: var(--bg-elev);
 }
 
 .grid-scroll {

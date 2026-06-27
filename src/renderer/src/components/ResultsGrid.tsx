@@ -1,8 +1,14 @@
 import { type JSX, useMemo } from 'react'
 import { type ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import type { QueryResult } from '@shared/types'
+import { toCsv, toJson } from '../export'
 
 type Row = Record<string, unknown>
+
+async function exportResult(result: QueryResult, kind: 'csv' | 'json'): Promise<void> {
+  const content = kind === 'csv' ? toCsv(result) : toJson(result)
+  await window.api.ws.saveAs(`export.${kind}`, content)
+}
 
 function renderCell(value: unknown): JSX.Element | string {
   if (value === null || value === undefined) return <span className="null">NULL</span>
@@ -40,7 +46,21 @@ export default function ResultsGrid({ result }: { result: QueryResult | null }):
   return (
     <div className="grid-wrap">
       <div className="grid-status">
-        {result.rowCount} linha(s) • {Math.round(result.durationMs)} ms
+        <span>
+          {result.rowCount} linha(s) • {Math.round(result.durationMs)} ms
+        </span>
+        <span className="grid-actions">
+          <button className="link" title="Exportar CSV" onClick={() => exportResult(result, 'csv')}>
+            CSV
+          </button>
+          <button
+            className="link"
+            title="Exportar JSON"
+            onClick={() => exportResult(result, 'json')}
+          >
+            JSON
+          </button>
+        </span>
       </div>
       <div className="grid-scroll">
         <table className="grid">
