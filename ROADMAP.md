@@ -25,9 +25,10 @@ Conexão a PostgreSQL/MySQL/SQLite, editor SQL (Monaco), grade de resultados (Ta
 
 ---
 
-## 🎯 v0.2 — Produtividade no SQL · épico [#1](https://github.com/angelojrp/deep-ion-db/issues/1)
+## ✅ v0.2 — Produtividade no SQL · épico [#1](https://github.com/angelojrp/deep-ion-db/issues/1) — entregue
 
-Objetivo: tornar o uso diário tão fluido quanto DBeaver/DataGrip.
+Objetivo: tornar o uso diário tão fluido quanto DBeaver/DataGrip. **Concluída** (abas, autocomplete,
+workspace+markdown, formatação, executar seleção, export, histórico, edição na grade) + Database Explorer.
 
 | Prioridade | Issue | Status |
 | --- | --- | --- |
