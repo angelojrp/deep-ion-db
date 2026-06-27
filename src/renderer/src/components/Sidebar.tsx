@@ -1,10 +1,19 @@
 import { type FormEvent, type JSX, useEffect, useState } from 'react'
-import type { ConnectionConfig, DbKind, SchemaTable } from '@shared/types'
+import type {
+  ConnectionConfig,
+  ConnectionSummary,
+  DbKind,
+  SavedConnection,
+  SchemaTable
+} from '@shared/types'
 
 interface Props {
-  connections: ConnectionConfig[]
+  connections: ConnectionSummary[]
+  saved: SavedConnection[]
   activeId: string | null
-  onConnect: (config: ConnectionConfig) => Promise<void>
+  onConnect: (config: ConnectionConfig, persist: boolean) => Promise<void>
+  onConnectSaved: (saved: SavedConnection) => Promise<void>
+  onDeleteSaved: (id: string) => void
   onSelect: (id: string) => void
   onDisconnect: (id: string) => void
   onInsertSql: (sql: string) => void
@@ -18,8 +27,11 @@ const DEFAULT_PORT: Record<DbKind, string> = {
 
 export default function Sidebar({
   connections,
+  saved,
   activeId,
   onConnect,
+  onConnectSaved,
+  onDeleteSaved,
   onSelect,
   onDisconnect,
   onInsertSql
@@ -32,7 +44,9 @@ export default function Sidebar({
   const [password, setPassword] = useState('')
   const [database, setDatabase] = useState('')
   const [filePath, setFilePath] = useState('')
+  const [persist, setPersist] = useState(true)
   const [connecting, setConnecting] = useState(false)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   function changeKind(next: DbKind): void {
@@ -58,11 +72,23 @@ export default function Sidebar({
     }
 
     try {
-      await onConnect(config)
+      await onConnect(config, persist)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : String(err))
     } finally {
       setConnecting(false)
+    }
+  }
+
+  async function connectSaved(s: SavedConnection): Promise<void> {
+    setBusyId(s.id)
+    setFormError(null)
+    try {
+      await onConnectSaved(s)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -123,24 +149,56 @@ export default function Sidebar({
           </>
         )}
 
+        <label className="checkbox">
+          <input type="checkbox" checked={persist} onChange={(e) => setPersist(e.target.checked)} />
+          Salvar conexão (senha criptografada)
+        </label>
+
         <button type="submit" disabled={connecting}>
           {connecting ? 'Conectando…' : 'Conectar'}
         </button>
         {formError && <p className="form-error">{formError}</p>}
       </form>
 
-      <div className="connections">
-        {connections.map((c) => (
-          <div key={c.id} className={'conn-item' + (c.id === activeId ? ' active' : '')}>
-            <span className="conn-name" onClick={() => onSelect(c.id)} title={c.kind}>
-              {c.name}
-            </span>
-            <button className="link" title="Desconectar" onClick={() => onDisconnect(c.id)}>
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
+      {saved.length > 0 && (
+        <div className="conn-section">
+          <div className="section-title">Salvas</div>
+          {saved.map((s) => (
+            <div key={s.id} className={'conn-item' + (s.id === activeId ? ' active' : '')}>
+              <span
+                className="conn-name"
+                onClick={() => connectSaved(s)}
+                title={`${s.kind} — clique para conectar`}
+              >
+                {busyId === s.id ? '…' : '💾'} {s.name}
+              </span>
+              <button
+                className="link"
+                title="Remover conexão salva"
+                onClick={() => onDeleteSaved(s.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {connections.length > 0 && (
+        <div className="conn-section">
+          <div className="section-title">Ativas</div>
+          {connections.map((c) => (
+            <div key={c.id} className={'conn-item' + (c.id === activeId ? ' active' : '')}>
+              <span className="conn-name" onClick={() => onSelect(c.id)} title={c.kind}>
+                ● {c.name}
+              </span>
+              <button className="link" title="Desconectar" onClick={() => onDisconnect(c.id)}>
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {activeId && (
         <TableTree

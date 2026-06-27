@@ -111,6 +111,33 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.conn-form .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.conn-form .checkbox input {
+  width: auto;
+}
+
+.conn-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-dim);
+  margin: 4px 0 2px;
+}
+
 .connections {
   display: flex;
   flex-direction: column;

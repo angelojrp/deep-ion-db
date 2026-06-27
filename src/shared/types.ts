@@ -41,6 +41,26 @@ export interface ColumnInfo {
   nullable: boolean
 }
 
+/** Resumo de uma conexão ativa para exibição na UI. */
+export interface ConnectionSummary {
+  id: string
+  name: string
+  kind: DbKind
+}
+
+/** Conexão persistida (metadados, sem senha em texto puro). */
+export interface SavedConnection {
+  id: string
+  name: string
+  kind: DbKind
+  host?: string
+  port?: number
+  user?: string
+  database?: string
+  filePath?: string
+  ssl?: boolean
+}
+
 /** Superfície exposta ao renderer via contextBridge. */
 export interface DbApi {
   connect(config: ConnectionConfig): Promise<{ id: string }>
@@ -50,6 +70,15 @@ export interface DbApi {
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]>
 }
 
+/** Gerência de conexões salvas (senha guardada com segurança no main). */
+export interface ConnApi {
+  list(): Promise<SavedConnection[]>
+  save(config: ConnectionConfig): Promise<SavedConnection>
+  remove(id: string): Promise<void>
+  connect(id: string): Promise<{ id: string }>
+}
+
 export interface AppApi {
   db: DbApi
+  conn: ConnApi
 }
