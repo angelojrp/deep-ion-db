@@ -10,11 +10,10 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  # Cada SO apenas builda e sobe os instaladores como artifacts (sem publicar).
+  build:
     strategy:
       fail-fast: false
-      # Serializado: evita corrida entre jobs publicando na mesma release (assets perdidos).
-      max-parallel: 1
       matrix:
         include:
           - os: ubuntu-latest
@@ -39,9 +38,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and publish
-        run: npm run build && npx --no-install electron-builder ${{ matrix.platform }} --publish always
+      - name: Build installers
+        run: npm run build && npx --no-install electron-builder ${{ matrix.platform }} --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Não há certificado de assinatura: evita o electron-builder tentar assinar no macOS.
+          # Sem certificado: evita o electron-builder tentar assinar no macOS.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+      - name: Upload installers as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          if-no-files-found: ignore
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.snap
+            dist/*.yml
+            dist/*.blockmap
+
+  # Um único job junta todos os artifacts e publica UMA release — sem corrida.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: artifacts/**
