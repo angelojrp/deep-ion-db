@@ -4,6 +4,7 @@ import type {
   ConnectionSummary,
   QueryResult,
   SavedConnection,
+  SchemaTable,
   Workspace,
   WsEntry
 } from '@shared/types'
@@ -12,6 +13,7 @@ import SqlEditor, { type SqlEditorApi } from './components/SqlEditor'
 import ResultsGrid from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
+import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
 
@@ -62,6 +64,7 @@ export default function App(): JSX.Element {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
   const editorApi = useRef<SqlEditorApi | null>(null)
+  const schemaCache = useRef(new Map<string, SchemaTable[]>())
 
   const refreshSaved = useCallback(async () => {
     setSaved(await window.api.conn.list())
@@ -74,6 +77,33 @@ export default function App(): JSX.Element {
       .then((w) => setWorkspace(w))
       .catch(() => {})
   }, [refreshSaved])
+
+  // Alimenta o autocomplete com o schema da conexão da aba ativa.
+  const tabConnId = activeTab?.connectionId ?? null
+  const tabKind = activeConn?.kind ?? null
+  useEffect(() => {
+    if (!tabConnId) {
+      setActiveSchema(null, null, [])
+      return
+    }
+    const cached = schemaCache.current.get(tabConnId)
+    if (cached) {
+      setActiveSchema(tabConnId, tabKind, cached)
+      return
+    }
+    let cancelled = false
+    window.api.db
+      .listTables(tabConnId)
+      .then((ts) => {
+        if (cancelled) return
+        schemaCache.current.set(tabConnId, ts)
+        setActiveSchema(tabConnId, tabKind, ts)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [tabConnId, tabKind])
 
   const updateTab = useCallback((id: string, patch: Partial<EditorTab>) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
