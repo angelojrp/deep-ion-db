@@ -1,6 +1,12 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
-export type { ColumnInfo, ConnectionConfig, QueryResult, SchemaTable } from '@shared/types'
+export type {
+  ColumnInfo,
+  ConnectionConfig,
+  QueryResult,
+  SavedConnection,
+  SchemaTable
+} from '@shared/types'
 
 /** Contrato implementado por cada driver de banco. */
 export interface Driver {

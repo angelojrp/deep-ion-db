@@ -9,6 +9,12 @@ const api: AppApi = {
     listTables: (id: string) => ipcRenderer.invoke('db:listTables', id),
     listColumns: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:listColumns', id, schema, table)
+  },
+  conn: {
+    list: () => ipcRenderer.invoke('conn:list'),
+    save: (config: ConnectionConfig) => ipcRenderer.invoke('conn:save', config),
+    remove: (id: string) => ipcRenderer.invoke('conn:remove', id),
+    connect: (id: string) => ipcRenderer.invoke('conn:connect', id)
   }
 }
 
