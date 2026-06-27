@@ -3,6 +3,8 @@ import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 export type {
   ColumnInfo,
   ConnectionConfig,
+  HistoryEntry,
+  HistoryInput,
   QueryResult,
   SavedConnection,
   SchemaTable,

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppApi, ConnectionConfig } from '@shared/types'
+import type { AppApi, ConnectionConfig, HistoryInput } from '@shared/types'
 
 const api: AppApi = {
   db: {
@@ -26,6 +26,13 @@ const api: AppApi = {
     remove: (path: string) => ipcRenderer.invoke('ws:remove', path),
     saveAs: (defaultName: string, content: string) =>
       ipcRenderer.invoke('ws:saveAs', defaultName, content)
+  },
+  hist: {
+    list: () => ipcRenderer.invoke('hist:list'),
+    add: (entry: HistoryInput) => ipcRenderer.invoke('hist:add', entry),
+    toggleFavorite: (id: string) => ipcRenderer.invoke('hist:toggleFavorite', id),
+    remove: (id: string) => ipcRenderer.invoke('hist:remove', id),
+    clear: () => ipcRenderer.invoke('hist:clear')
   }
 }
 

@@ -13,6 +13,7 @@ import SqlEditor, { type SqlEditorApi } from './components/SqlEditor'
 import ResultsGrid from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
+import HistoryPanel from './components/HistoryPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -60,6 +61,7 @@ export default function App(): JSX.Element {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [tabs, setTabs] = useState<EditorTab[]>(() => [createTab('Query 1')])
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
+  const [showHistory, setShowHistory] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -187,18 +189,37 @@ export default function App(): JSX.Element {
     }
     const { id, connectionId, content } = activeTab
     const sql = editorApi.current?.getRunText()?.trim() || content
+    const conn = connections.find((c) => c.id === connectionId)
     updateTab(id, { running: true, error: null })
     try {
       const res = await window.api.db.query(connectionId, sql)
       updateTab(id, { result: res, running: false })
+      void window.api.hist.add({
+        sql,
+        connectionName: conn?.name ?? '—',
+        kind: conn?.kind,
+        ts: Date.now(),
+        durationMs: res.durationMs,
+        rowCount: res.rowCount,
+        ok: true
+      })
     } catch (e) {
       updateTab(id, {
         error: e instanceof Error ? e.message : String(e),
         result: null,
         running: false
       })
+      void window.api.hist.add({
+        sql,
+        connectionName: conn?.name ?? '—',
+        kind: conn?.kind,
+        ts: Date.now(),
+        durationMs: 0,
+        rowCount: 0,
+        ok: false
+      })
     }
-  }, [activeTab, updateTab])
+  }, [activeTab, updateTab, connections])
 
   // ----- Workspace -----
   const openWorkspace = useCallback(async () => {
@@ -325,6 +346,13 @@ export default function App(): JSX.Element {
               >
                 Formatar
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowHistory(true)}
+                title="Histórico de queries"
+              >
+                🕘 Histórico
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -367,6 +395,13 @@ export default function App(): JSX.Element {
           </div>
         )}
       </main>
+
+      {showHistory && (
+        <HistoryPanel
+          onClose={() => setShowHistory(false)}
+          onPick={(sql) => updateActiveTab({ content: sql, dirty: true })}
+        />
+      )}
     </div>
   )
 }

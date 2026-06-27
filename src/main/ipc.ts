@@ -1,15 +1,18 @@
 import { ipcMain } from 'electron'
 import { DbManager } from './db/manager'
 import { ConnectionStore } from './connectionStore'
+import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
-import type { ConnectionConfig } from './db/types'
+import type { ConnectionConfig, HistoryInput } from './db/types'
 
 const manager = new DbManager()
 const store = new ConnectionStore()
+const history = new HistoryStore()
 
 /** Registra os handlers IPC do banco. Os erros são propagados ao renderer. */
 export function registerDbIpc(): void {
   store.load()
+  history.load()
 
   ipcMain.handle('db:connect', (_e, config: ConnectionConfig) => manager.connect(config))
   ipcMain.handle('db:disconnect', (_e, id: string) => manager.disconnect(id))
@@ -40,6 +43,13 @@ export function registerDbIpc(): void {
   ipcMain.handle('ws:saveAs', (_e, defaultName: string, content: string) =>
     ws.saveAs(defaultName, content)
   )
+
+  // Histórico de queries.
+  ipcMain.handle('hist:list', () => history.list())
+  ipcMain.handle('hist:add', (_e, entry: HistoryInput) => history.add(entry))
+  ipcMain.handle('hist:toggleFavorite', (_e, id: string) => history.toggleFavorite(id))
+  ipcMain.handle('hist:remove', (_e, id: string) => history.remove(id))
+  ipcMain.handle('hist:clear', () => history.clear())
 }
 
 export function shutdownDb(): Promise<void> {
