@@ -13,6 +13,8 @@ jobs:
   release:
     strategy:
       fail-fast: false
+      # Serializado: evita corrida entre jobs publicando na mesma release (assets perdidos).
+      max-parallel: 1
       matrix:
         include:
           - os: ubuntu-latest
