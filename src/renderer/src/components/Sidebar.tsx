@@ -1,11 +1,6 @@
-import { type FormEvent, type JSX, useEffect, useState } from 'react'
-import type {
-  ConnectionConfig,
-  ConnectionSummary,
-  DbKind,
-  SavedConnection,
-  SchemaTable
-} from '@shared/types'
+import { type FormEvent, type JSX, useState } from 'react'
+import type { ConnectionConfig, ConnectionSummary, DbKind, SavedConnection } from '@shared/types'
+import DatabaseExplorer from './DatabaseExplorer'
 
 interface Props {
   connections: ConnectionSummary[]
@@ -36,6 +31,8 @@ export default function Sidebar({
   onDisconnect,
   onInsertSql
 }: Props): JSX.Element {
+  const hasAny = connections.length > 0 || saved.length > 0
+  const [showForm, setShowForm] = useState(!hasAny)
   const [kind, setKind] = useState<DbKind>('postgres')
   const [name, setName] = useState('')
   const [host, setHost] = useState('localhost')
@@ -46,7 +43,6 @@ export default function Sidebar({
   const [filePath, setFilePath] = useState('')
   const [persist, setPersist] = useState(true)
   const [connecting, setConnecting] = useState(false)
-  const [busyId, setBusyId] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
   function changeKind(next: DbKind): void {
@@ -73,6 +69,9 @@ export default function Sidebar({
 
     try {
       await onConnect(config, persist)
+      setShowForm(false)
+      setName('')
+      setPassword('')
     } catch (err) {
       setFormError(err instanceof Error ? err.message : String(err))
     } finally {
@@ -80,189 +79,99 @@ export default function Sidebar({
     }
   }
 
-  async function connectSaved(s: SavedConnection): Promise<void> {
-    setBusyId(s.id)
-    setFormError(null)
-    try {
-      await onConnectSaved(s)
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusyId(null)
-    }
-  }
-
   return (
     <aside className="sidebar">
-      <h1 className="brand">Deep Ion DB</h1>
+      <div className="sidebar-head">
+        <h1 className="brand">Deep Ion DB</h1>
+        <button
+          className="icon-btn"
+          title={showForm ? 'Fechar' : 'Nova conexão'}
+          onClick={() => setShowForm((v) => !v)}
+        >
+          {showForm ? '×' : '＋'}
+        </button>
+      </div>
 
-      <form className="conn-form" onSubmit={submit}>
-        <label>
-          Tipo
-          <select value={kind} onChange={(e) => changeKind(e.target.value as DbKind)}>
-            <option value="postgres">PostgreSQL</option>
-            <option value="mysql">MySQL / MariaDB</option>
-            <option value="sqlite">SQLite</option>
-          </select>
-        </label>
-
-        <label>
-          Nome
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="opcional" />
-        </label>
-
-        {kind === 'sqlite' ? (
+      {showForm && (
+        <form className="conn-form" onSubmit={submit}>
           <label>
-            Arquivo
-            <input
-              value={filePath}
-              onChange={(e) => setFilePath(e.target.value)}
-              placeholder="/caminho/banco.db"
-            />
+            Tipo
+            <select value={kind} onChange={(e) => changeKind(e.target.value as DbKind)}>
+              <option value="postgres">PostgreSQL</option>
+              <option value="mysql">MySQL / MariaDB</option>
+              <option value="sqlite">SQLite</option>
+            </select>
           </label>
-        ) : (
-          <>
+
+          <label>
+            Nome
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="opcional" />
+          </label>
+
+          {kind === 'sqlite' ? (
             <label>
-              Host
-              <input value={host} onChange={(e) => setHost(e.target.value)} />
-            </label>
-            <label>
-              Porta
-              <input value={port} onChange={(e) => setPort(e.target.value)} />
-            </label>
-            <label>
-              Usuário
-              <input value={user} onChange={(e) => setUser(e.target.value)} />
-            </label>
-            <label>
-              Senha
+              Arquivo
               <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={filePath}
+                onChange={(e) => setFilePath(e.target.value)}
+                placeholder="/caminho/banco.db"
               />
             </label>
-            <label>
-              Database
-              <input value={database} onChange={(e) => setDatabase(e.target.value)} />
-            </label>
-          </>
-        )}
+          ) : (
+            <>
+              <label>
+                Host
+                <input value={host} onChange={(e) => setHost(e.target.value)} />
+              </label>
+              <label>
+                Porta
+                <input value={port} onChange={(e) => setPort(e.target.value)} />
+              </label>
+              <label>
+                Usuário
+                <input value={user} onChange={(e) => setUser(e.target.value)} />
+              </label>
+              <label>
+                Senha
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </label>
+              <label>
+                Database
+                <input value={database} onChange={(e) => setDatabase(e.target.value)} />
+              </label>
+            </>
+          )}
 
-        <label className="checkbox">
-          <input type="checkbox" checked={persist} onChange={(e) => setPersist(e.target.checked)} />
-          Salvar conexão (senha criptografada)
-        </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={persist}
+              onChange={(e) => setPersist(e.target.checked)}
+            />
+            Salvar conexão (senha criptografada)
+          </label>
 
-        <button type="submit" disabled={connecting}>
-          {connecting ? 'Conectando…' : 'Conectar'}
-        </button>
-        {formError && <p className="form-error">{formError}</p>}
-      </form>
-
-      {saved.length > 0 && (
-        <div className="conn-section">
-          <div className="section-title">Salvas</div>
-          {saved.map((s) => (
-            <div key={s.id} className={'conn-item' + (s.id === activeId ? ' active' : '')}>
-              <span
-                className="conn-name"
-                onClick={() => connectSaved(s)}
-                title={`${s.kind} — clique para conectar`}
-              >
-                {busyId === s.id ? '…' : '💾'} {s.name}
-              </span>
-              <button
-                className="link"
-                title="Remover conexão salva"
-                onClick={() => onDeleteSaved(s.id)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+          <button type="submit" disabled={connecting}>
+            {connecting ? 'Conectando…' : 'Conectar'}
+          </button>
+          {formError && <p className="form-error">{formError}</p>}
+        </form>
       )}
 
-      {connections.length > 0 && (
-        <div className="conn-section">
-          <div className="section-title">Ativas</div>
-          {connections.map((c) => (
-            <div key={c.id} className={'conn-item' + (c.id === activeId ? ' active' : '')}>
-              <span className="conn-name" onClick={() => onSelect(c.id)} title={c.kind}>
-                ● {c.name}
-              </span>
-              <button className="link" title="Desconectar" onClick={() => onDisconnect(c.id)}>
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {activeId && (
-        <TableTree
-          key={activeId}
-          connectionId={activeId}
-          kind={connections.find((c) => c.id === activeId)?.kind}
-          onInsertSql={onInsertSql}
-        />
-      )}
+      <DatabaseExplorer
+        connections={connections}
+        saved={saved}
+        activeId={activeId}
+        onConnectSaved={onConnectSaved}
+        onSelect={onSelect}
+        onDisconnect={onDisconnect}
+        onDeleteSaved={onDeleteSaved}
+        onInsertSql={onInsertSql}
+      />
     </aside>
-  )
-}
-
-interface TreeProps {
-  connectionId: string
-  kind: DbKind | undefined
-  onInsertSql: (sql: string) => void
-}
-
-function TableTree({ connectionId, kind, onInsertSql }: TreeProps): JSX.Element {
-  const [tables, setTables] = useState<SchemaTable[]>([])
-  const [loading, setLoading] = useState(false)
-  const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setErr(null)
-    window.api.db
-      .listTables(connectionId)
-      .then((t) => {
-        if (!cancelled) setTables(t)
-      })
-      .catch((e) => {
-        if (!cancelled) setErr(e instanceof Error ? e.message : String(e))
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [connectionId])
-
-  function selectTable(t: SchemaTable): void {
-    const qualified = kind === 'sqlite' ? t.name : `${t.schema}.${t.name}`
-    onInsertSql(`SELECT * FROM ${qualified} LIMIT 100;`)
-  }
-
-  return (
-    <div className="tree">
-      <div className="tree-title">Tabelas {loading ? '…' : `(${tables.length})`}</div>
-      {err && <p className="form-error">{err}</p>}
-      {tables.map((t) => (
-        <div
-          key={`${t.schema}.${t.name}`}
-          className="tree-item"
-          title={`${t.type} — clique para gerar SELECT`}
-          onClick={() => selectTable(t)}
-        >
-          {t.schema !== 'main' ? `${t.schema}.` : ''}
-          {t.name}
-        </div>
-      ))}
-    </div>
   )
 }
