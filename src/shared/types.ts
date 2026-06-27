@@ -78,7 +78,33 @@ export interface ConnApi {
   connect(id: string): Promise<{ id: string }>
 }
 
+/** Entrada (arquivo ou pasta) na árvore de um workspace. */
+export interface WsEntry {
+  name: string
+  path: string
+  type: 'file' | 'dir'
+  children?: WsEntry[]
+}
+
+export interface Workspace {
+  root: string
+  tree: WsEntry[]
+}
+
+/** Workspace local: pasta com arquivos .sql/.md, estilo projeto. */
+export interface WsApi {
+  open(): Promise<Workspace | null>
+  current(): Promise<Workspace | null>
+  refresh(): Promise<Workspace | null>
+  read(path: string): Promise<string>
+  write(path: string, content: string): Promise<void>
+  create(dir: string, name: string): Promise<WsEntry>
+  remove(path: string): Promise<void>
+  saveAs(defaultName: string, content: string): Promise<string | null>
+}
+
 export interface AppApi {
   db: DbApi
   conn: ConnApi
+  ws: WsApi
 }

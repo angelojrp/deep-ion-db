@@ -3,39 +3,60 @@ import type {
   ConnectionConfig,
   ConnectionSummary,
   QueryResult,
-  SavedConnection
+  SavedConnection,
+  Workspace,
+  WsEntry
 } from '@shared/types'
 import Sidebar from './components/Sidebar'
 import SqlEditor from './components/SqlEditor'
 import ResultsGrid from './components/ResultsGrid'
 import Tabs from './components/Tabs'
+import MarkdownView from './components/MarkdownView'
 
-interface QueryTab {
+type TabKind = 'sql' | 'markdown'
+
+interface EditorTab {
   id: string
   title: string
+  kind: TabKind
+  filePath: string | null
   connectionId: string | null
-  sql: string
+  content: string
   result: QueryResult | null
   error: string | null
   running: boolean
+  dirty: boolean
 }
 
-function createTab(title: string): QueryTab {
+function baseName(p: string): string {
+  const parts = p.split(/[\\/]/)
+  return parts[parts.length - 1] || p
+}
+
+function kindFromName(name: string): TabKind {
+  return /\.(md|markdown)$/i.test(name) ? 'markdown' : 'sql'
+}
+
+function createTab(title: string, kind: TabKind = 'sql'): EditorTab {
   return {
     id: crypto.randomUUID(),
     title,
+    kind,
+    filePath: null,
     connectionId: null,
-    sql: 'SELECT 1 AS hello;',
+    content: kind === 'sql' ? 'SELECT 1 AS hello;' : '# Notas\n',
     result: null,
     error: null,
-    running: false
+    running: false,
+    dirty: false
   }
 }
 
 export default function App(): JSX.Element {
   const [connections, setConnections] = useState<ConnectionSummary[]>([])
   const [saved, setSaved] = useState<SavedConnection[]>([])
-  const [tabs, setTabs] = useState<QueryTab[]>(() => [createTab('Query 1')])
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [tabs, setTabs] = useState<EditorTab[]>(() => [createTab('Query 1')])
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
@@ -47,14 +68,18 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     refreshSaved().catch(() => {})
+    window.api.ws
+      .current()
+      .then((w) => setWorkspace(w))
+      .catch(() => {})
   }, [refreshSaved])
 
-  const updateTab = useCallback((id: string, patch: Partial<QueryTab>) => {
+  const updateTab = useCallback((id: string, patch: Partial<EditorTab>) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
   }, [])
 
   const updateActiveTab = useCallback(
-    (patch: Partial<QueryTab>) => {
+    (patch: Partial<EditorTab>) => {
       if (activeTabId) updateTab(activeTabId, patch)
     },
     [activeTabId, updateTab]
@@ -129,10 +154,10 @@ export default function App(): JSX.Element {
       updateTab(activeTab.id, { error: 'Selecione uma conexão para esta aba.' })
       return
     }
-    const { id, connectionId, sql } = activeTab
+    const { id, connectionId, content } = activeTab
     updateTab(id, { running: true, error: null })
     try {
-      const res = await window.api.db.query(connectionId, sql)
+      const res = await window.api.db.query(connectionId, content)
       updateTab(id, { result: res, running: false })
     } catch (e) {
       updateTab(id, {
@@ -143,73 +168,163 @@ export default function App(): JSX.Element {
     }
   }, [activeTab, updateTab])
 
+  // ----- Workspace -----
+  const openWorkspace = useCallback(async () => {
+    const w = await window.api.ws.open()
+    if (w) setWorkspace(w)
+  }, [])
+
+  const refreshWorkspace = useCallback(async () => {
+    setWorkspace(await window.api.ws.refresh())
+  }, [])
+
+  const openFile = useCallback(
+    async (entry: WsEntry) => {
+      const existing = tabs.find((t) => t.filePath === entry.path)
+      if (existing) {
+        setActiveTabId(existing.id)
+        return
+      }
+      const content = await window.api.ws.read(entry.path)
+      const tab: EditorTab = {
+        ...createTab(entry.name, kindFromName(entry.name)),
+        filePath: entry.path,
+        content,
+        connectionId: activeTab?.connectionId ?? null,
+        dirty: false
+      }
+      setTabs((prev) => [...prev, tab])
+      setActiveTabId(tab.id)
+    },
+    [tabs, activeTab]
+  )
+
+  const saveActive = useCallback(async () => {
+    if (!activeTab) return
+    if (activeTab.filePath) {
+      await window.api.ws.write(activeTab.filePath, activeTab.content)
+      updateTab(activeTab.id, { dirty: false })
+    } else {
+      const def = `${activeTab.title}.${activeTab.kind === 'markdown' ? 'md' : 'sql'}`
+      const path = await window.api.ws.saveAs(def, activeTab.content)
+      if (path) {
+        updateTab(activeTab.id, { filePath: path, title: baseName(path), dirty: false })
+        await refreshWorkspace()
+      }
+    }
+  }, [activeTab, updateTab, refreshWorkspace])
+
+  const newFile = useCallback(
+    async (dir: string) => {
+      const name = window.prompt('Nome do arquivo (ex.: consulta.sql ou notas.md):')
+      if (!name) return
+      const entry = await window.api.ws.create(dir, name)
+      await refreshWorkspace()
+      await openFile(entry)
+    },
+    [refreshWorkspace, openFile]
+  )
+
+  const deleteFile = useCallback(
+    async (entry: WsEntry) => {
+      if (!window.confirm(`Excluir "${entry.name}"?`)) return
+      await window.api.ws.remove(entry.path)
+      setTabs((prev) => prev.filter((t) => t.filePath !== entry.path))
+      await refreshWorkspace()
+    },
+    [refreshWorkspace]
+  )
+
+  const onContentChange = useCallback(
+    (content: string) => updateActiveTab({ content, dirty: true }),
+    [updateActiveTab]
+  )
+
   return (
     <div className="app">
       <Sidebar
         connections={connections}
         saved={saved}
         activeId={activeTab?.connectionId ?? null}
+        workspace={workspace}
         onConnect={handleConnect}
         onConnectSaved={handleConnectSaved}
         onDeleteSaved={handleDeleteSaved}
         onSelect={(id) => updateActiveTab({ connectionId: id })}
         onDisconnect={handleDisconnect}
-        onInsertSql={(sql) => updateActiveTab({ sql })}
+        onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+        onOpenWorkspace={openWorkspace}
+        onRefreshWorkspace={refreshWorkspace}
+        onOpenFile={openFile}
+        onNewFile={newFile}
+        onDeleteFile={deleteFile}
       />
 
       <main className="workspace">
         <Tabs
-          tabs={tabs.map((t) => ({ id: t.id, title: t.title }))}
+          tabs={tabs.map((t) => ({ id: t.id, title: t.title, dirty: t.dirty }))}
           activeId={activeTabId}
           onSelect={setActiveTabId}
           onClose={closeTab}
           onNew={newTab}
         />
 
-        <div className="toolbar">
-          <button
-            className="run-btn"
-            onClick={runQuery}
-            disabled={!activeTab?.connectionId || activeTab?.running}
-          >
-            {activeTab?.running ? 'Executando…' : '▶ Executar'}
-          </button>
-          <span className="hint">Ctrl/Cmd + Enter</span>
-          <select
-            className="conn-select"
-            value={activeTab?.connectionId ?? ''}
-            onChange={(e) => updateActiveTab({ connectionId: e.target.value || null })}
-          >
-            <option value="">— sem conexão —</option>
-            {connections.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.kind})
-              </option>
-            ))}
-          </select>
-          <span className="conn-status">
-            {activeConn ? `● ${activeConn.name}` : '○ Sem conexão'}
-          </span>
-        </div>
+        {activeTab?.kind === 'markdown' ? (
+          <MarkdownView
+            key={activeTab.id}
+            value={activeTab.content}
+            onChange={onContentChange}
+            onSave={saveActive}
+          />
+        ) : (
+          <div className="sql-pane">
+            <div className="toolbar">
+              <button
+                className="run-btn"
+                onClick={runQuery}
+                disabled={!activeTab?.connectionId || activeTab?.running}
+              >
+                {activeTab?.running ? 'Executando…' : '▶ Executar'}
+              </button>
+              <span className="hint">Ctrl/Cmd + Enter</span>
+              <select
+                className="conn-select"
+                value={activeTab?.connectionId ?? ''}
+                onChange={(e) => updateActiveTab({ connectionId: e.target.value || null })}
+              >
+                <option value="">— sem conexão —</option>
+                {connections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.kind})
+                  </option>
+                ))}
+              </select>
+              <span className="conn-status">
+                {activeConn ? `● ${activeConn.name}` : '○ Sem conexão'}
+              </span>
+            </div>
 
-        <div className="editor-pane">
-          {activeTab && (
-            <SqlEditor
-              key={activeTab.id}
-              value={activeTab.sql}
-              onChange={(sql) => updateActiveTab({ sql })}
-              onRun={runQuery}
-            />
-          )}
-        </div>
+            <div className="editor-pane">
+              {activeTab && (
+                <SqlEditor
+                  key={activeTab.id}
+                  value={activeTab.content}
+                  onChange={onContentChange}
+                  onRun={runQuery}
+                  onSave={saveActive}
+                />
+              )}
+            </div>
 
-        <div className="results-pane">
-          {activeTab?.error ? (
-            <pre className="error">{activeTab.error}</pre>
-          ) : (
-            <ResultsGrid result={activeTab?.result ?? null} />
-          )}
-        </div>
+            <div className="results-pane">
+              {activeTab?.error ? (
+                <pre className="error">{activeTab.error}</pre>
+              ) : (
+                <ResultsGrid result={activeTab?.result ?? null} />
+              )}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   )

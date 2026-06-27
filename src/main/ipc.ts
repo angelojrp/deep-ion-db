@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { DbManager } from './db/manager'
 import { ConnectionStore } from './connectionStore'
+import * as ws from './workspace'
 import type { ConnectionConfig } from './db/types'
 
 const manager = new DbManager()
@@ -27,6 +28,18 @@ export function registerDbIpc(): void {
     if (!config) throw new Error('Conexão salva não encontrada.')
     return manager.connect(config)
   })
+
+  // Workspace local (arquivos .sql/.md).
+  ipcMain.handle('ws:open', () => ws.openWorkspace())
+  ipcMain.handle('ws:current', () => ws.currentWorkspace())
+  ipcMain.handle('ws:refresh', () => ws.refreshWorkspace())
+  ipcMain.handle('ws:read', (_e, path: string) => ws.readFile(path))
+  ipcMain.handle('ws:write', (_e, path: string, content: string) => ws.writeFile(path, content))
+  ipcMain.handle('ws:create', (_e, dir: string, name: string) => ws.createFile(dir, name))
+  ipcMain.handle('ws:remove', (_e, path: string) => ws.removeEntry(path))
+  ipcMain.handle('ws:saveAs', (_e, defaultName: string, content: string) =>
+    ws.saveAs(defaultName, content)
+  )
 }
 
 export function shutdownDb(): Promise<void> {

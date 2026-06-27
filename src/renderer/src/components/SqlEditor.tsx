@@ -5,17 +5,21 @@ interface Props {
   value: string
   onChange: (value: string) => void
   onRun: () => void
+  onSave?: () => void
 }
 
-export default function SqlEditor({ value, onChange, onRun }: Props): JSX.Element {
-  // Mantém a referência da última callback para evitar closure obsoleta no atalho.
+export default function SqlEditor({ value, onChange, onRun, onSave }: Props): JSX.Element {
+  // Mantém a referência das últimas callbacks para evitar closure obsoleta nos atalhos.
   const onRunRef = useRef(onRun)
+  const onSaveRef = useRef(onSave)
   useEffect(() => {
     onRunRef.current = onRun
-  }, [onRun])
+    onSaveRef.current = onSave
+  }, [onRun, onSave])
 
   const handleMount: OnMount = (editor, monaco) => {
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => onRunRef.current())
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => onSaveRef.current?.())
   }
 
   return (

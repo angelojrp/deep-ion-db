@@ -1,17 +1,31 @@
 import { type FormEvent, type JSX, useState } from 'react'
-import type { ConnectionConfig, ConnectionSummary, DbKind, SavedConnection } from '@shared/types'
+import type {
+  ConnectionConfig,
+  ConnectionSummary,
+  DbKind,
+  SavedConnection,
+  Workspace,
+  WsEntry
+} from '@shared/types'
 import DatabaseExplorer from './DatabaseExplorer'
+import WorkspacePanel from './WorkspacePanel'
 
 interface Props {
   connections: ConnectionSummary[]
   saved: SavedConnection[]
   activeId: string | null
+  workspace: Workspace | null
   onConnect: (config: ConnectionConfig, persist: boolean) => Promise<void>
   onConnectSaved: (saved: SavedConnection) => Promise<void>
   onDeleteSaved: (id: string) => void
   onSelect: (id: string) => void
   onDisconnect: (id: string) => void
   onInsertSql: (sql: string) => void
+  onOpenWorkspace: () => void
+  onRefreshWorkspace: () => void
+  onOpenFile: (entry: WsEntry) => void
+  onNewFile: (dir: string) => void
+  onDeleteFile: (entry: WsEntry) => void
 }
 
 const DEFAULT_PORT: Record<DbKind, string> = {
@@ -24,12 +38,18 @@ export default function Sidebar({
   connections,
   saved,
   activeId,
+  workspace,
   onConnect,
   onConnectSaved,
   onDeleteSaved,
   onSelect,
   onDisconnect,
-  onInsertSql
+  onInsertSql,
+  onOpenWorkspace,
+  onRefreshWorkspace,
+  onOpenFile,
+  onNewFile,
+  onDeleteFile
 }: Props): JSX.Element {
   const hasAny = connections.length > 0 || saved.length > 0
   const [showForm, setShowForm] = useState(!hasAny)
@@ -161,6 +181,15 @@ export default function Sidebar({
           {formError && <p className="form-error">{formError}</p>}
         </form>
       )}
+
+      <WorkspacePanel
+        workspace={workspace}
+        onOpen={onOpenWorkspace}
+        onRefresh={onRefreshWorkspace}
+        onOpenFile={onOpenFile}
+        onNewFile={onNewFile}
+        onDelete={onDeleteFile}
+      />
 
       <DatabaseExplorer
         connections={connections}
