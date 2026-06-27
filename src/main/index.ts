@@ -23,6 +23,14 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Links (ex.: no preview de Markdown) abrem no navegador, nunca navegam o app.
+  win.webContents.on('will-navigate', (event, url) => {
+    if (url !== win.webContents.getURL()) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {

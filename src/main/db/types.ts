@@ -5,7 +5,9 @@ export type {
   ConnectionConfig,
   QueryResult,
   SavedConnection,
-  SchemaTable
+  SchemaTable,
+  Workspace,
+  WsEntry
 } from '@shared/types'
 
 /** Contrato implementado por cada driver de banco. */
