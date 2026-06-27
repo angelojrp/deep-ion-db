@@ -80,13 +80,13 @@ npm run start
 
 ## Roadmap
 
-- [ ] Múltiplas abas de query
-- [ ] Edição de dados na grade (CRUD inline)
-- [ ] Exportar resultados (CSV/JSON)
-- [ ] Persistir conexões (com armazenamento seguro de senha)
-- [ ] Expandir colunas/índices/constraints na árvore
-- [ ] Suporte a SQL Server e mais bancos
-- [ ] Empacotamento com electron-builder (instaladores)
+O planejamento completo, priorizado por milestone (Produtividade → DBA Toolkit → IA), está em **[ROADMAP.md](ROADMAP.md)** e nas [issues](https://github.com/angelojrp/deep-ion-db/issues).
+
+Destaques das próximas versões:
+
+- **v0.2 — Produtividade:** abas, autocomplete ciente do schema, export, edição na grade, conexões persistentes
+- **v0.3 — DBA Toolkit:** explorador de objetos, EXPLAIN, monitor de sessões, usuários/permissões, diff de schemas, diagrama ER
+- **v0.4 — IA para DBAs:** NL→SQL, assistente com contexto do banco, otimização por IA, **MCP**, multi-provedores (Claude/Codex/Gemini/local)
 
 ## Licença
 
