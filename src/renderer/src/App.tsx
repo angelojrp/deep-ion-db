@@ -71,11 +71,7 @@ export default function App(): JSX.Element {
         </div>
 
         <div className="results-pane">
-          {error ? (
-            <pre className="error">{error}</pre>
-          ) : (
-            <ResultsGrid result={result} />
-          )}
+          {error ? <pre className="error">{error}</pre> : <ResultsGrid result={result} />}
         </div>
       </main>
     </div>
