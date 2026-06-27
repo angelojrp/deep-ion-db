@@ -4,6 +4,18 @@ IDE para bancos de dados relacionais (estilo DBeaver), construída com **Electro
 
 Esta é a primeira versão utilizável (`0.1.0`): conectar a um banco, escrever SQL com destaque de sintaxe e ver os resultados em grade.
 
+## Download (versão desktop)
+
+Baixe o instalador da sua plataforma na página de **[Releases](https://github.com/angelojrp/deep-ion-db/releases/latest)**:
+
+| Plataforma | Arquivo |
+| --- | --- |
+| Windows | `Deep Ion DB-<versão>-Windows-x64-setup.exe` |
+| macOS | `Deep Ion DB-<versão>-macOS-<arch>.dmg` |
+| Linux | `Deep Ion DB-<versão>-Linux-x86_64.AppImage` ou `.deb` |
+
+> Os builds ainda não são assinados, então o Windows (SmartScreen) e o macOS (Gatekeeper) podem exibir um aviso na primeira execução — é normal nesta fase.
+
 ## Recursos
 
 - Conexão a **PostgreSQL**, **MySQL/MariaDB** e **SQLite**

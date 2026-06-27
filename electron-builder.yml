@@ -1,0 +1,54 @@
+appId: com.angelojrp.deepiondb
+productName: Deep Ion DB
+copyright: Copyright © 2026 angelojrp
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.{md,map}'
+  - '!**/*.ts'
+
+# Módulo nativo: precisa ficar fora do asar para carregar em runtime.
+asarUnpack:
+  - '**/*.node'
+  - '**/node_modules/better-sqlite3/**'
+
+npmRebuild: true
+
+publish:
+  provider: github
+  owner: angelojrp
+  repo: deep-ion-db
+  releaseType: release
+
+win:
+  target: nsis
+  executableName: deep-ion-db
+  artifactName: ${productName}-${version}-Windows-${arch}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.developer-tools
+  artifactName: ${productName}-${version}-macOS-${arch}.${ext}
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  maintainer: angelojrp <angelojrp@gmail.com>
+  artifactName: ${productName}-${version}-Linux-${arch}.${ext}
