@@ -31,12 +31,14 @@ Objetivo: tornar o uso diário tão fluido quanto DBeaver/DataGrip.
 
 | Prioridade | Issue | Status |
 | --- | --- | --- |
-| **P0** | [#10 Conexões persistentes com senha segura](https://github.com/angelojrp/deep-ion-db/issues/10) | ⬜ |
+| **P0** | [#10 Conexões persistentes com senha segura](https://github.com/angelojrp/deep-ion-db/issues/10) | ✅ |
 | **P0** | [#5 Múltiplas abas de query](https://github.com/angelojrp/deep-ion-db/issues/5) | ⬜ |
+| **P1** | [#44 Workspace: salvar queries no diretório local](https://github.com/angelojrp/deep-ion-db/issues/44) | ⬜ |
 | **P1** | [#7 Autocomplete ciente do schema](https://github.com/angelojrp/deep-ion-db/issues/7) | ⬜ |
 | **P1** | [#12 Executar seleção / múltiplos result sets](https://github.com/angelojrp/deep-ion-db/issues/12) | ⬜ |
 | **P1** | [#8 Exportar resultados (CSV/JSON/Excel)](https://github.com/angelojrp/deep-ion-db/issues/8) | ⬜ |
 | **P1** | [#6 Histórico de queries e favoritos](https://github.com/angelojrp/deep-ion-db/issues/6) | ⬜ |
+| **P2** | [#45 Editor e visualizador de Markdown](https://github.com/angelojrp/deep-ion-db/issues/45) | ⬜ |
 | **P2** | [#9 Edição de dados na grade (CRUD inline)](https://github.com/angelojrp/deep-ion-db/issues/9) | ⬜ |
 | **P2** | [#11 Formatação (pretty-print) de SQL](https://github.com/angelojrp/deep-ion-db/issues/11) | ⬜ |
 
@@ -50,6 +52,7 @@ Objetivo: ferramentas de administração de primeira linha.
 
 | Prioridade | Issue | Status |
 | --- | --- | --- |
+| **P0** | [#43 Database Explorer: árvore multi-conexão (estilo DataGrip)](https://github.com/angelojrp/deep-ion-db/issues/43) | ⬜ |
 | **P0** | [#13 Explorador de objetos completo](https://github.com/angelojrp/deep-ion-db/issues/13) | ⬜ |
 | **P1** | [#14 Visualizar/gerar DDL (CREATE/ALTER)](https://github.com/angelojrp/deep-ion-db/issues/14) | ⬜ |
 | **P1** | [#15 Visualização de planos (EXPLAIN)](https://github.com/angelojrp/deep-ion-db/issues/15) | ⬜ |
