@@ -384,6 +384,23 @@ export default function App(): JSX.Element {
               >
                 {activeTab?.running ? 'Executando…' : '▶ Executar'}
               </button>
+              {activeTab?.running && (
+                <button
+                  className="stop-btn"
+                  onClick={() => {
+                    const cid = activeTab.connectionId
+                    if (cid) void api.db.cancel(cid)
+                  }}
+                  disabled={activeConn?.kind === 'sqlite'}
+                  title={
+                    activeConn?.kind === 'sqlite'
+                      ? 'SQLite não suporta cancelamento de query'
+                      : 'Cancelar query em execução'
+                  }
+                >
+                  ◼ Stop
+                </button>
+              )}
               <button
                 className="ghost-btn"
                 onClick={explainQuery}

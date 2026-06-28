@@ -146,6 +146,7 @@ export interface DbApi {
   routines(id: string, schema: string): Promise<RoutineInfo[]>
   jobs(id: string): Promise<JobInfo[]>
   backup(id: string): Promise<{ ok: boolean; path?: string; error?: string }>
+  cancel(id: string): Promise<void>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

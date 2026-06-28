@@ -21,6 +21,9 @@ import { BaseDriver } from './base'
 export class OracleDriver extends BaseDriver implements Driver {
   private pool: oracledb.Pool | null = null
   private readonly config: ConnectionConfig
+  private _activeConn: oracledb.Connection | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(config: ConnectionConfig) {
     super(config.queryTimeoutMs)
@@ -69,6 +72,7 @@ export class OracleDriver extends BaseDriver implements Driver {
   async query(text: string): Promise<QueryResult> {
     const start = performance.now()
     const conn = await this.get().getConnection()
+    this._activeConn = conn
     try {
       const res = await this.withTimeout(
         conn.execute(text, [], { autoCommit: true }),
@@ -82,7 +86,14 @@ export class OracleDriver extends BaseDriver implements Driver {
       }
       return this.normalizeQueryResult([], [], res.rowsAffected ?? 0, durationMs, 'OK')
     } finally {
+      this._activeConn = null
       await conn.close()
+    }
+  }
+
+  async cancel(): Promise<void> {
+    if (this._activeConn) {
+      await this._activeConn.break()
     }
   }
 

@@ -61,6 +61,7 @@ export function registerDbIpc(): void {
   )
   ipcMain.handle('db:routines', (_e, id: string, schema: string) => manager.routines(id, schema))
   ipcMain.handle('db:jobs', (_e, id: string) => manager.jobs(id))
+  ipcMain.handle('db:cancel', (_e, id: string) => manager.cancel(id))
   ipcMain.handle('db:backup', async (_e, id: string) => {
     const config = manager.getConfig(id)
     if (!config) return { ok: false, error: 'Conexão não encontrada.' }

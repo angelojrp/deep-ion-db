@@ -131,4 +131,11 @@ export class DbManager {
   jobs(id: string): Promise<JobInfo[]> {
     return this.get(id).jobs()
   }
+
+  async cancel(id: string): Promise<void> {
+    const driver = this.drivers.get(id)
+    if (driver?.cancel) {
+      await driver.cancel()
+    }
+  }
 }
