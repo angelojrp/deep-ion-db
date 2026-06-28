@@ -3,6 +3,14 @@ import cors from '@fastify/cors'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
 import type { ConnectionConfig } from '../../src/shared/types'
 import { metaConfigured, metaStatus, migrate } from './meta'
+import {
+  createDataSource,
+  deleteDataSource,
+  getDataSourceConfig,
+  listDataSources,
+  type DataSourceInput
+} from './dataSources'
+import { vaultUsingDefaultKey } from './vault'
 
 /**
  * Backend web (MVP do épico #53) — reaproveita a camada de drivers do app desktop.
@@ -84,6 +92,41 @@ async function main(): Promise<void> {
     }
   })
 
+  // ----- Data sources gerenciados (#59) — credenciais no cofre (#62) -----
+  app.get('/api/data-sources', async () => ({ dataSources: await listDataSources() }))
+
+  app.post<{ Body: DataSourceInput }>('/api/data-sources', async (req, reply) => {
+    if (!req.body?.name) {
+      reply.code(400)
+      return { error: 'name é obrigatório.' }
+    }
+    return await createDataSource(req.body)
+  })
+
+  app.delete<{ Params: { id: string } }>('/api/data-sources/:id', async (req) => {
+    await deleteDataSource(req.params.id)
+    return { ok: true }
+  })
+
+  app.post<{ Params: { id: string } }>('/api/data-sources/:id/test', async (req, reply) => {
+    const config = await getDataSourceConfig(req.params.id)
+    if (!config) {
+      reply.code(404)
+      return { ok: false, error: 'data source não encontrado.' }
+    }
+    const driver = new PostgresDriver(config)
+    try {
+      await driver.connect()
+      await driver.query('select 1')
+      return { ok: true }
+    } catch (e) {
+      reply.code(400)
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    } finally {
+      await driver.disconnect().catch(() => {})
+    }
+  })
+
   if (metaConfigured()) {
     try {
       await migrate()
@@ -91,6 +134,9 @@ async function main(): Promise<void> {
     } catch (e) {
       app.log.error({ err: e }, 'Falha ao migrar metadados (seguindo mesmo assim).')
     }
+  }
+  if (vaultUsingDefaultKey()) {
+    app.log.warn('META_ENCRYPTION_KEY não definida — usando chave de DEV. Defina em produção!')
   }
 
   const port = Number(process.env.PORT ?? 4000)
