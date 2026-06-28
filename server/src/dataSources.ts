@@ -61,24 +61,33 @@ export async function deleteDataSource(id: string): Promise<void> {
   await getPool().query('delete from data_sources where id = $1', [id])
 }
 
-/** Reconstrói o ConnectionConfig com a senha descriptografada — uso interno (proxied/test). */
-export async function getDataSourceConfig(id: string): Promise<ConnectionConfig | null> {
+/** Reconstrói o ConnectionConfig (senha descriptografada) + ambiente — uso interno (proxied/test). */
+export async function loadDataSource(
+  id: string
+): Promise<{ config: ConnectionConfig; environment: string } | null> {
   const res = await getPool().query(
-    `select id, name, kind, host, port, database, username, secret_enc, ssl
+    `select id, name, kind, host, port, database, username, secret_enc, ssl, environment
        from data_sources where id = $1`,
     [id]
   )
   const r = res.rows[0]
   if (!r) return null
   return {
-    id: r.id,
-    name: r.name,
-    kind: r.kind,
-    host: r.host ?? undefined,
-    port: r.port ?? undefined,
-    user: r.username ?? undefined,
-    database: r.database ?? undefined,
-    password: r.secret_enc ? decrypt(r.secret_enc) : undefined,
-    ssl: r.ssl
+    environment: r.environment,
+    config: {
+      id: r.id,
+      name: r.name,
+      kind: r.kind,
+      host: r.host ?? undefined,
+      port: r.port ?? undefined,
+      user: r.username ?? undefined,
+      database: r.database ?? undefined,
+      password: r.secret_enc ? decrypt(r.secret_enc) : undefined,
+      ssl: r.ssl
+    }
   }
+}
+
+export async function getDataSourceConfig(id: string): Promise<ConnectionConfig | null> {
+  return (await loadDataSource(id))?.config ?? null
 }

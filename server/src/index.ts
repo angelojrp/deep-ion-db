@@ -8,12 +8,22 @@ import {
   deleteDataSource,
   getDataSourceConfig,
   listDataSources,
+  loadDataSource,
   type DataSourceInput
 } from './dataSources'
 import { vaultUsingDefaultKey } from './vault'
 import { type AuthUser, authDisabled, devUser, upsertUser, verifyToken } from './auth'
 import { createGrant, deleteGrant, getGrantMode, isReadOnlySql, listGrants } from './grants'
 import { audit, listAudit } from './audit'
+import {
+  MAX_SESSIONS_PER_USER,
+  STATEMENT_TIMEOUT_MS,
+  SessionLimiter,
+  capRows,
+  effectiveMode
+} from './policy'
+
+const sessions = new SessionLimiter()
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -187,29 +197,40 @@ async function main(): Promise<void> {
     '/api/data-sources/:id/query',
     async (req, reply) => {
       const user = req.user!
-      const mode = user.role === 'admin' ? 'readwrite' : await getGrantMode(user.id, req.params.id)
-      if (!mode) {
+      const grant = user.role === 'admin' ? 'readwrite' : await getGrantMode(user.id, req.params.id)
+      if (!grant) {
         await audit(user.id, req.params.id, 'query.denied', { reason: 'sem concessão' })
         reply.code(403)
         return { error: 'sem acesso a este data source' }
       }
-      if (mode === 'read' && !isReadOnlySql(req.body.sql)) {
-        await audit(user.id, req.params.id, 'query.denied', { reason: 'somente-leitura' })
-        reply.code(403)
-        return { error: 'concessão somente-leitura: apenas SELECT/WITH/EXPLAIN' }
-      }
-      const config = await getDataSourceConfig(req.params.id)
-      if (!config) {
+      const ds = await loadDataSource(req.params.id)
+      if (!ds) {
         reply.code(404)
         return { error: 'data source não encontrado' }
       }
-      const driver = new PostgresDriver(config)
+      // Política (#64): produção força somente-leitura.
+      const mode = effectiveMode(grant, ds.environment)
+      if (mode === 'read' && !isReadOnlySql(req.body.sql)) {
+        await audit(user.id, req.params.id, 'query.denied', {
+          reason: ds.environment === 'prod' ? 'prod-somente-leitura' : 'somente-leitura'
+        })
+        reply.code(403)
+        return { error: 'somente-leitura: apenas SELECT/WITH/EXPLAIN' }
+      }
+      // Limite de sessões por usuário (#65).
+      if (!sessions.tryAcquire(user.id)) {
+        reply.code(429)
+        return { error: `limite de ${MAX_SESSIONS_PER_USER} execuções simultâneas atingido` }
+      }
+      const driver = new PostgresDriver(ds.config)
       try {
         await driver.connect()
-        const result = await driver.query(req.body.sql)
+        await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
+        const result = capRows(await driver.query(req.body.sql))
         await audit(user.id, req.params.id, 'query', {
           rowCount: result.rowCount,
-          readonly: mode === 'read'
+          readonly: mode === 'read',
+          truncated: result.truncated ?? false
         })
         return result
       } catch (e) {
@@ -219,6 +240,7 @@ async function main(): Promise<void> {
         reply.code(400)
         return { error: e instanceof Error ? e.message : String(e) }
       } finally {
+        sessions.release(user.id)
         await driver.disconnect().catch(() => {})
       }
     }
