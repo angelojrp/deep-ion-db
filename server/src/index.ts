@@ -1,5 +1,7 @@
+import { join } from 'path'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import fastifyStatic from '@fastify/static'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
 import type { ConnectionConfig } from '../../src/shared/types'
 import { metaConfigured, metaStatus, migrate } from './meta'
@@ -295,6 +297,12 @@ async function main(): Promise<void> {
     } finally {
       await driver.disconnect().catch(() => {})
     }
+  })
+
+  // Frontend web (#55) servido estaticamente (após as rotas /api).
+  await app.register(fastifyStatic, {
+    root: join(__dirname, '../../web/public'),
+    prefix: '/'
   })
 
   if (metaConfigured()) {

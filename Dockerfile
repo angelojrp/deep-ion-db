@@ -15,6 +15,10 @@ RUN npm ci --no-audit --no-fund
 COPY tsconfig.json tsconfig.node.json tsconfig.web.json ./
 COPY src ./src
 COPY server ./server
+COPY web ./web
+
+# Builda o frontend web (gera web/public/app.js)
+RUN npm run web:build
 
 ENV PORT=4000
 EXPOSE 4000

@@ -31,6 +31,9 @@ docker compose up -d
 curl http://localhost:4000/health
 # {"ok":true,"service":"deep-ion-db-server","version":"..."}
 
+# 4. Abra a UI web no navegador
+#    http://localhost:4000
+
 # logs / parar
 docker compose logs -f server
 docker compose down            # mantém os dados (volume meta-data)
