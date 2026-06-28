@@ -28,6 +28,7 @@ import HealthPanel from './components/HealthPanel'
 import AiSettingsPanel from './components/AiSettingsPanel'
 import AiAssistantPanel from './components/AiAssistantPanel'
 import DiffPanel from './components/DiffPanel'
+import FeedbackModal from './components/FeedbackModal'
 import JobsPanel from './components/JobsPanel'
 import { setActiveSchema, setCompletionApi } from './sqlCompletion'
 import { useApi, useCaps } from './api'
@@ -121,6 +122,7 @@ export default function App(): JSX.Element {
   const [showAssistant, setShowAssistant] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
   const [showJobs, setShowJobs] = useState(false)
+  const [showFeedback, setShowFeedback] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   )
@@ -477,6 +479,7 @@ export default function App(): JSX.Element {
           onSelect={setActiveTabId}
           onClose={closeTab}
           onNew={newTab}
+          onFeedback={() => setShowFeedback(true)}
         />
 
         {activeTab?.kind === 'markdown' ? (
@@ -721,6 +724,8 @@ export default function App(): JSX.Element {
           onClose={() => setShowAssistant(false)}
         />
       )}
+
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </div>
   )
 }
