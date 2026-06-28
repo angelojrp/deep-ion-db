@@ -87,6 +87,7 @@ export function registerDbIpc(): void {
   // Integração com IA (config + chat). A chave fica só no main.
   ipcMain.handle('ai:getConfig', () => ai.getPublicConfig())
   ipcMain.handle('ai:setConfig', (_e, input: AiSettingsInput) => ai.setConfig(input))
+  ipcMain.handle('ai:setConsent', () => ai.setConsent())
   ipcMain.handle('ai:chat', (_e, messages: AiChatMessage[], system?: string) =>
     ai.chat(messages, system)
   )

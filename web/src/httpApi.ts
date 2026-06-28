@@ -166,6 +166,7 @@ export const httpApi: AppApi = {
   ai: {
     getConfig: async () => null,
     setConfig: async () => unsupported('configuração de IA'),
+    setConsent: async () => unsupported('configuração de IA'),
     chat: async () => unsupported('IA')
   }
 }

@@ -207,6 +207,12 @@ export interface AIPublicConfig {
   model: string
   baseUrl?: string
   hasKey: boolean
+  /** Enviar schema/DDL como contexto para a IA (padrão: true). */
+  sendSchema: boolean
+  /** Enviar plano de EXPLAIN como contexto para a IA (padrão: true). */
+  sendExplain: boolean
+  /** Usuário aceitou o aviso de privacidade antes de enviar dados a um provedor cloud. */
+  consentGiven: boolean
 }
 
 export interface AiSettingsInput {
@@ -214,6 +220,10 @@ export interface AiSettingsInput {
   model?: string
   baseUrl?: string
   apiKey?: string
+  /** Controla envio de schema/DDL. */
+  sendSchema?: boolean
+  /** Controla envio de plano EXPLAIN. */
+  sendExplain?: boolean
 }
 
 export interface AiChatMessage {
@@ -225,6 +235,8 @@ export interface AiApi {
   getConfig(): Promise<AIPublicConfig | null>
   setConfig(input: AiSettingsInput): Promise<AIPublicConfig>
   chat(messages: AiChatMessage[], system?: string): Promise<string>
+  /** Registra o aceite do aviso de privacidade para o provedor cloud atual. */
+  setConsent(): Promise<AIPublicConfig>
 }
 
 export interface AppApi {

@@ -20,6 +20,9 @@ interface Stored {
   model: string
   baseUrl?: string
   secret?: Secret
+  sendSchema?: boolean
+  sendExplain?: boolean
+  consentGiven?: boolean
 }
 
 const file = join(app.getPath('userData'), 'ai.json')
@@ -61,7 +64,15 @@ function decrypt(secret: Secret | undefined): string | undefined {
 
 export function getPublicConfig(): AIPublicConfig | null {
   if (!data) return null
-  return { kind: data.kind, model: data.model, baseUrl: data.baseUrl, hasKey: !!data.secret }
+  return {
+    kind: data.kind,
+    model: data.model,
+    baseUrl: data.baseUrl,
+    hasKey: !!data.secret,
+    sendSchema: data.sendSchema ?? true,
+    sendExplain: data.sendExplain ?? true,
+    consentGiven: data.consentGiven ?? false
+  }
 }
 
 export function setConfig(input: AiSettingsInput): AIPublicConfig {
@@ -75,8 +86,20 @@ export function setConfig(input: AiSettingsInput): AIPublicConfig {
       ? encrypt(input.apiKey)
       : input.kind === prev?.kind
         ? prev?.secret
-        : undefined
+        : undefined,
+    sendSchema: input.sendSchema ?? prev?.sendSchema ?? true,
+    sendExplain: input.sendExplain ?? prev?.sendExplain ?? true,
+    // redefine consentimento se o provedor mudou
+    consentGiven: input.kind === prev?.kind ? (prev?.consentGiven ?? false) : false
   }
+  persist()
+  return getPublicConfig()!
+}
+
+/** Registra o aceite do aviso de privacidade (não redefine outras configurações). */
+export function setConsent(): AIPublicConfig {
+  if (!data) throw new Error('IA não configurada.')
+  data = { ...data, consentGiven: true }
   persist()
   return getPublicConfig()!
 }
