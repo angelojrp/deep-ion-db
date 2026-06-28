@@ -38,19 +38,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build installers
-        run: npm run build && npx --no-install electron-builder ${{ matrix.platform }} --publish never
+      # Só define as variáveis de assinatura quando há certificado configurado.
+      # Passar CSC_LINK vazio faz o electron-builder tratá-lo como caminho de
+      # arquivo ("not a file") e quebra o build não assinado. Ver docs/CODESIGN.md.
+      - name: Configure code signing
+        shell: bash
         env:
-          # Certificado de assinatura (Windows .pfx / macOS .p12) — base64 e senha.
-          # Ver docs/CODESIGN.md. Quando ausentes, a assinatura é ignorada.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          # Notarização Apple (macOS).
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Só tenta assinar/descobrir identidade quando há certificado configurado.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            {
+              echo "CSC_LINK=$CSC_LINK"
+              echo "CSC_KEY_PASSWORD=$CSC_KEY_PASSWORD"
+              echo "APPLE_ID=$APPLE_ID"
+              echo "APPLE_APP_SPECIFIC_PASSWORD=$APPLE_APP_SPECIFIC_PASSWORD"
+              echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+            } >> "$GITHUB_ENV"
+          else
+            echo "CSC_IDENTITY_AUTO_DISCOVERY=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build installers
+        run: npm run build && npx --no-install electron-builder ${{ matrix.platform }} --publish never
 
       - name: Upload installers as artifacts
         uses: actions/upload-artifact@v4
