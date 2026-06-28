@@ -31,7 +31,8 @@ const api: AppApi = {
     indexes: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:indexes', id, schema, table),
     routines: (id: string, schema: string) => ipcRenderer.invoke('db:routines', id, schema),
-    jobs: (id: string) => ipcRenderer.invoke('db:jobs', id)
+    jobs: (id: string) => ipcRenderer.invoke('db:jobs', id),
+    backup: (id: string) => ipcRenderer.invoke('db:backup', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),
