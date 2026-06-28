@@ -9,6 +9,25 @@ import type { HealthMetric, JobInfo, QueryResult, RoleInfo, SessionInfo } from '
  * o que é específico do dialeto.
  */
 export abstract class BaseDriver {
+  protected readonly timeoutMs: number
+
+  constructor(timeoutMs = 30_000) {
+    this.timeoutMs = timeoutMs
+  }
+
+  /**
+   * Executa `promise` com um deadline de `ms` milissegundos.
+   * Se o tempo expirar antes da resolução, rejeita com mensagem amigável.
+   */
+  protected withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Query excedeu o tempo limite de ${ms / 1000}s`)), ms)
+      )
+    ])
+  }
+
   /**
    * Monta um QueryResult a partir das partes comuns.
    * Use em todos os drivers para garantir consistência na estrutura retornada.

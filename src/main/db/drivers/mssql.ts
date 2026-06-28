@@ -22,7 +22,7 @@ export class MssqlDriver extends BaseDriver implements Driver {
   private pool: sql.ConnectionPool
 
   constructor(config: ConnectionConfig) {
-    super()
+    super(config.queryTimeoutMs)
     this.pool = new sql.ConnectionPool({
       server: config.host ?? 'localhost',
       port: config.port ?? 1433,
@@ -43,7 +43,7 @@ export class MssqlDriver extends BaseDriver implements Driver {
 
   async query(text: string): Promise<QueryResult> {
     const start = performance.now()
-    const res = await this.pool.request().query(text)
+    const res = await this.withTimeout(this.pool.request().query(text), this.timeoutMs)
     const durationMs = performance.now() - start
     const recordset = res.recordset as
       (Record<string, unknown>[] & { columns?: Record<string, { index: number }> }) | undefined

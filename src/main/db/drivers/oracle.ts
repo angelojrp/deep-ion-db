@@ -23,7 +23,7 @@ export class OracleDriver extends BaseDriver implements Driver {
   private readonly config: ConnectionConfig
 
   constructor(config: ConnectionConfig) {
-    super()
+    super(config.queryTimeoutMs)
     this.config = config
     oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
     oracledb.fetchAsString = [oracledb.CLOB]
@@ -70,7 +70,10 @@ export class OracleDriver extends BaseDriver implements Driver {
     const start = performance.now()
     const conn = await this.get().getConnection()
     try {
-      const res = await conn.execute(text, [], { autoCommit: true })
+      const res = await this.withTimeout(
+        conn.execute(text, [], { autoCommit: true }),
+        this.timeoutMs
+      )
       const durationMs = performance.now() - start
       if (res.rows) {
         const columns = (res.metaData ?? []).map((m) => m.name)

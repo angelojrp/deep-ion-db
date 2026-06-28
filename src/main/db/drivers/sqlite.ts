@@ -18,7 +18,7 @@ export class SqliteDriver extends BaseDriver implements Driver {
   private db: Database.Database | null = null
 
   constructor(private config: ConnectionConfig) {
-    super()
+    super(config.queryTimeoutMs)
   }
 
   async connect(): Promise<void> {
@@ -39,23 +39,29 @@ export class SqliteDriver extends BaseDriver implements Driver {
   }
 
   async query(sql: string): Promise<QueryResult> {
-    const start = performance.now()
-    const stmt = this.handle.prepare(sql)
+    // SQLite é síncrono; Promise.race aplica deadline mesmo que não cancele a thread.
+    return this.withTimeout(
+      Promise.resolve().then(() => {
+        const start = performance.now()
+        const stmt = this.handle.prepare(sql)
 
-    if (stmt.reader) {
-      const rows = stmt.all() as Record<string, unknown>[]
-      const columns = stmt.columns().map((c) => c.name)
-      return this.normalizeQueryResult(
-        columns,
-        rows,
-        rows.length,
-        performance.now() - start,
-        'SELECT'
-      )
-    }
+        if (stmt.reader) {
+          const rows = stmt.all() as Record<string, unknown>[]
+          const columns = stmt.columns().map((c) => c.name)
+          return this.normalizeQueryResult(
+            columns,
+            rows,
+            rows.length,
+            performance.now() - start,
+            'SELECT'
+          )
+        }
 
-    const info = stmt.run()
-    return this.normalizeQueryResult([], [], info.changes, performance.now() - start, 'OK')
+        const info = stmt.run()
+        return this.normalizeQueryResult([], [], info.changes, performance.now() - start, 'OK')
+      }),
+      this.timeoutMs
+    )
   }
 
   async primaryKeys(_schema: string, table: string): Promise<string[]> {
