@@ -6,6 +6,7 @@ import type {
   SavedConnection,
   SchemaTable
 } from '@shared/types'
+import { seedSystem, stripCodeFences } from '@ai/features'
 
 interface DataSource {
   id: string
@@ -289,6 +290,28 @@ function TableNode({
             }}
           >
             DDL
+          </button>
+          <button
+            className="link"
+            title="Gerar dados de teste (IA)"
+            onClick={async () => {
+              try {
+                const cols = await window.api.db.listColumns(connId, table.schema, table.name)
+                const colText = cols
+                  .map((c) => `${c.name} ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
+                  .join(', ')
+                const user = `Tabela: ${qualified}\nColunas: ${colText}\nGere 10 INSERTs.`
+                const reply = await window.api.ai.chat(
+                  [{ role: 'user', content: user }],
+                  seedSystem(kind ?? 'SQL')
+                )
+                onInsertSql(stripCodeFences(reply))
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            🌱
           </button>
         </span>
       </div>
