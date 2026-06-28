@@ -34,6 +34,40 @@ export function dbaChatSystem(dialect: string, schemaCtx: string): string {
   )
 }
 
+/** Otimização de query assistida (#28). */
+export function optimizeSqlSystem(dialect: string): string {
+  return (
+    `Você é um especialista em performance de ${dialect}. Recebe uma query, seu plano (EXPLAIN) e ` +
+    'o schema. Aponte gargalos e sugira otimizações (índices, reescrita) com justificativa e o SQL ' +
+    'de criação de índice quando aplicável. Seja objetivo.'
+  )
+}
+
+/** Diagnóstico de performance assistido (#31). */
+export function diagnoseSystem(dialect: string): string {
+  return (
+    `Você é um DBA sênior de ${dialect}. A partir das métricas de saúde e das sessões ativas, ` +
+    'produza um diagnóstico priorizado (achados + ações recomendadas, com SQL quando útil). ' +
+    'Responda em Markdown.'
+  )
+}
+
+/** Documentação automática do schema (#32). */
+export function schemaDocsSystem(dialect: string): string {
+  return (
+    `Você é um DBA. Gere documentação em Markdown do schema ${dialect} fornecido: uma visão geral e, ` +
+    'por tabela, uma descrição provável e a lista de colunas. Não invente tabelas além das fornecidas.'
+  )
+}
+
+/** Geração de dados de teste/seed (#33). */
+export function seedSystem(dialect: string): string {
+  return (
+    `Você é um gerador de dados de teste para ${dialect}. Gere instruções INSERT com dados realistas ` +
+    'e coerentes com os tipos das colunas. Responda SOMENTE com SQL, sem explicações nem cercas.'
+  )
+}
+
 /** Remove cercas de código (```sql ... ```), se houver. */
 export function stripCodeFences(text: string): string {
   const t = text.trim()

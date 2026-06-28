@@ -2,9 +2,12 @@ import { type JSX, useEffect, useState } from 'react'
 import type { AiChatMessage, DbKind } from '@shared/types'
 import {
   dbaChatSystem,
+  diagnoseSystem,
   explainSqlSystem,
   nlToSqlSystem,
+  optimizeSqlSystem,
   schemaContext,
+  schemaDocsSystem,
   stripCodeFences
 } from '@ai/features'
 
@@ -13,6 +16,7 @@ interface Props {
   kind: DbKind | undefined
   currentSql: string
   onInsertSql: (sql: string) => void
+  onOpenDoc: (title: string, content: string) => void
   onClose: () => void
 }
 
@@ -29,6 +33,7 @@ export default function AiAssistantPanel({
   kind,
   currentSql,
   onInsertSql,
+  onOpenDoc,
   onClose
 }: Props): JSX.Element {
   const dialect = kind ?? 'SQL'
@@ -89,6 +94,88 @@ export default function AiAssistantPanel({
     await run(explainSqlSystem(), [{ role: 'user', content: currentSql }], false)
   }
 
+  async function optimizeCurrent(): Promise<void> {
+    if (!currentSql.trim() || !connectionId) return
+    setTurns((t) => [...t, { role: 'user', text: 'Otimize a query atual.' }])
+    setBusy(true)
+    setErr(null)
+    try {
+      const prefix = kind === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN '
+      let plan = '(plano indisponível)'
+      try {
+        const res = await window.api.db.query(connectionId, prefix + currentSql)
+        plan = JSON.stringify(res.rows).slice(0, 4000)
+      } catch {
+        /* segue sem plano */
+      }
+      const user = `Schema:\n${schemaText}\n\nQuery:\n${currentSql}\n\nPlano (EXPLAIN):\n${plan}`
+      const reply = await window.api.ai.chat(
+        [{ role: 'user', content: user }],
+        optimizeSqlSystem(dialect)
+      )
+      setTurns((t) => [...t, { role: 'assistant', text: reply }])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function diagnose(): Promise<void> {
+    if (!connectionId) return
+    setBusy(true)
+    setErr(null)
+    try {
+      const [health, sessions] = await Promise.all([
+        window.api.db.serverHealth(connectionId),
+        window.api.db.activeSessions(connectionId)
+      ])
+      const user =
+        `Métricas de saúde:\n${health.map((m) => `${m.label}: ${m.value}`).join('\n')}\n\n` +
+        `Sessões ativas (${sessions.length}):\n` +
+        sessions
+          .slice(0, 20)
+          .map((s) => `pid=${s.pid} estado=${s.state ?? '-'} dur=${s.durationMs ?? '-'}ms`)
+          .join('\n')
+      const reply = await window.api.ai.chat(
+        [{ role: 'user', content: user }],
+        diagnoseSystem(dialect)
+      )
+      onOpenDoc('diagnostico-ia.md', reply)
+      onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function documentSchema(): Promise<void> {
+    if (!connectionId) return
+    setBusy(true)
+    setErr(null)
+    try {
+      const tables = await window.api.db.listTables(connectionId)
+      const lines: string[] = []
+      for (const t of tables.slice(0, 15)) {
+        const cols = await window.api.db.listColumns(connectionId, t.schema, t.name)
+        const qualified = t.schema && t.schema !== 'main' ? `${t.schema}.${t.name}` : t.name
+        lines.push(`${qualified}: ${cols.map((c) => `${c.name} ${c.dataType}`).join(', ')}`)
+      }
+      const user = `Schema (${dialect}):\n${lines.join('\n')}`
+      const reply = await window.api.ai.chat(
+        [{ role: 'user', content: user }],
+        schemaDocsSystem(dialect)
+      )
+      onOpenDoc('schema.md', reply)
+      onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -122,7 +209,20 @@ export default function AiAssistantPanel({
             onClick={explainCurrent}
             disabled={busy || !currentSql.trim()}
           >
-            Explicar query atual
+            Explicar
+          </button>
+          <button
+            className="ghost-btn"
+            onClick={optimizeCurrent}
+            disabled={busy || !currentSql.trim() || !connectionId}
+          >
+            Otimizar
+          </button>
+          <button className="ghost-btn" onClick={diagnose} disabled={busy || !connectionId}>
+            Diagnóstico
+          </button>
+          <button className="ghost-btn" onClick={documentSchema} disabled={busy || !connectionId}>
+            Documentar schema
           </button>
         </div>
 

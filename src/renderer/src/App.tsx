@@ -362,6 +362,14 @@ export default function App(): JSX.Element {
     [updateActiveTab]
   )
 
+  const openDoc = useCallback((title: string, content: string) => {
+    setTabs((prev) => {
+      const tab = { ...createTab(title, 'markdown'), content }
+      setActiveTabId(tab.id)
+      return [...prev, tab]
+    })
+  }, [])
+
   return (
     <div className="app">
       <Sidebar
@@ -549,6 +557,7 @@ export default function App(): JSX.Element {
           kind={activeConn?.kind}
           currentSql={activeTab?.content ?? ''}
           onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+          onOpenDoc={openDoc}
           onClose={() => setShowAssistant(false)}
         />
       )}
