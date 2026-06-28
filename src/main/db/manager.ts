@@ -75,4 +75,8 @@ export class DbManager {
   execBatch(id: string, statements: SqlStatement[]): Promise<void> {
     return this.get(id).execBatch(statements)
   }
+
+  tableDdl(id: string, schema: string, table: string): Promise<string> {
+    return this.get(id).tableDdl(schema, table)
+  }
 }

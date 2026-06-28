@@ -76,6 +76,7 @@ export interface DbApi {
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]>
   primaryKeys(id: string, schema: string, table: string): Promise<string[]>
   execBatch(id: string, statements: SqlStatement[]): Promise<void>
+  tableDdl(id: string, schema: string, table: string): Promise<string>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

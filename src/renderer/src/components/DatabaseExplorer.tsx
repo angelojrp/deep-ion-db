@@ -277,6 +277,19 @@ function TableNode({
           >
             ⤵
           </button>
+          <button
+            className="link"
+            title="Gerar DDL"
+            onClick={async () => {
+              try {
+                onInsertSql(await window.api.db.tableDdl(connId, table.schema, table.name))
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            DDL
+          </button>
         </span>
       </div>
       {expanded && (

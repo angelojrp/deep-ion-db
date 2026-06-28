@@ -258,6 +258,28 @@ export default function App(): JSX.Element {
     }
   }, [activeTab, updateTab, connections])
 
+  const explainQuery = useCallback(async () => {
+    if (!activeTab?.connectionId) {
+      updateActiveTab({ error: 'Selecione uma conexão para esta aba.' })
+      return
+    }
+    const base = editorApi.current?.getRunText()?.trim() || activeTab.content
+    const prefix = activeConn?.kind === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN '
+    const { id, connectionId } = activeTab
+    updateTab(id, { running: true, error: null })
+    try {
+      const res = await window.api.db.query(connectionId, prefix + base)
+      updateTab(id, { result: res, running: false, editCtx: null })
+    } catch (e) {
+      updateTab(id, {
+        error: e instanceof Error ? e.message : String(e),
+        result: null,
+        running: false,
+        editCtx: null
+      })
+    }
+  }, [activeTab, activeConn, updateTab, updateActiveTab])
+
   // ----- Workspace -----
   const openWorkspace = useCallback(async () => {
     const w = await window.api.ws.open()
@@ -375,6 +397,14 @@ export default function App(): JSX.Element {
                 disabled={!activeTab?.connectionId || activeTab?.running}
               >
                 {activeTab?.running ? 'Executando…' : '▶ Executar'}
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={explainQuery}
+                disabled={!activeTab?.connectionId || activeTab?.running}
+                title="Mostrar o plano de execução (EXPLAIN)"
+              >
+                Explain
               </button>
               <button
                 className="ghost-btn"

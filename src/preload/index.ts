@@ -12,7 +12,9 @@ const api: AppApi = {
     primaryKeys: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:primaryKeys', id, schema, table),
     execBatch: (id: string, statements: SqlStatement[]) =>
-      ipcRenderer.invoke('db:execBatch', id, statements)
+      ipcRenderer.invoke('db:execBatch', id, statements),
+    tableDdl: (id: string, schema: string, table: string) =>
+      ipcRenderer.invoke('db:tableDdl', id, schema, table)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

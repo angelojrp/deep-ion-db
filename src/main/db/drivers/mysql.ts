@@ -98,6 +98,13 @@ export class MysqlDriver implements Driver {
     }
   }
 
+  async tableDdl(schema: string, table: string): Promise<string> {
+    const [rows] = await this.connection.query(`SHOW CREATE TABLE \`${schema}\`.\`${table}\``)
+    const row = (rows as Record<string, string>[])[0]
+    const ddl = row?.['Create Table'] ?? row?.['Create View']
+    return ddl ? `${ddl};` : `-- DDL não encontrado para ${schema}.${table}`
+  }
+
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {
     const [rows] = await this.connection.query(
       `select column_name as name, data_type as dataType, is_nullable as nullable
