@@ -5,6 +5,7 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
   RoutineInfo,
@@ -112,5 +113,9 @@ export class DbManager {
 
   routines(id: string, schema: string): Promise<RoutineInfo[]> {
     return this.get(id).routines(schema)
+  }
+
+  jobs(id: string): Promise<JobInfo[]> {
+    return this.get(id).jobs()
   }
 }

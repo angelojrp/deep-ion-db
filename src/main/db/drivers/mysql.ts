@@ -6,6 +6,7 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
   RoutineInfo,
@@ -150,6 +151,21 @@ export class MysqlDriver implements Driver {
         where referenced_table_name is not null and table_schema = database()`
     )
     return rows as ForeignKey[]
+  }
+
+  async jobs(): Promise<JobInfo[]> {
+    const [rows] = await this.connection.query(
+      `select event_name as name,
+              concat(coalesce(interval_value,''),' ',coalesce(interval_field,'')) as schedule,
+              event_definition as command, (status = 'ENABLED') as enabled
+         from information_schema.events where event_schema = database()`
+    )
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      name: r.name as string,
+      schedule: ((r.schedule as string) || '').trim() || undefined,
+      command: r.command as string,
+      enabled: !!r.enabled
+    }))
   }
 
   async indexes(schema: string, table: string): Promise<IndexInfo[]> {

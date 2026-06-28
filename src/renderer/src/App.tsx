@@ -20,6 +20,7 @@ import HealthPanel from './components/HealthPanel'
 import AiSettingsPanel from './components/AiSettingsPanel'
 import AiAssistantPanel from './components/AiAssistantPanel'
 import DiffPanel from './components/DiffPanel'
+import JobsPanel from './components/JobsPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -109,6 +110,7 @@ export default function App(): JSX.Element {
   const [showAi, setShowAi] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
   const [showDiff, setShowDiff] = useState(false)
+  const [showJobs, setShowJobs] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   )
@@ -517,6 +519,14 @@ export default function App(): JSX.Element {
               </button>
               <button
                 className="ghost-btn"
+                onClick={() => setShowJobs(true)}
+                disabled={!activeTab?.connectionId}
+                title="Jobs agendados"
+              >
+                Jobs
+              </button>
+              <button
+                className="ghost-btn"
                 onClick={() => setShowAssistant(true)}
                 title="Assistente IA (NL→SQL, explicar, chat)"
               >
@@ -611,6 +621,10 @@ export default function App(): JSX.Element {
           onOpenDoc={openDoc}
           onClose={() => setShowDiff(false)}
         />
+      )}
+
+      {showJobs && activeTab?.connectionId && (
+        <JobsPanel connectionId={activeTab.connectionId} onClose={() => setShowJobs(false)} />
       )}
 
       {showAssistant && (
