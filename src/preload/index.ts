@@ -26,7 +26,8 @@ const api: AppApi = {
     killSession: (id: string, pid: string | number) =>
       ipcRenderer.invoke('db:killSession', id, pid),
     listRoles: (id: string) => ipcRenderer.invoke('db:listRoles', id),
-    serverHealth: (id: string) => ipcRenderer.invoke('db:serverHealth', id)
+    serverHealth: (id: string) => ipcRenderer.invoke('db:serverHealth', id),
+    foreignKeys: (id: string) => ipcRenderer.invoke('db:foreignKeys', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

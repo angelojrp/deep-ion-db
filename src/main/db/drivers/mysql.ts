@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
   QueryResult,
   RoleInfo,
@@ -137,6 +138,16 @@ export class MysqlDriver implements Driver {
         value: String((sz as Record<string, unknown>[])[0]?.v ?? '-')
       }
     ]
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const [rows] = await this.connection.query(
+      `select table_name as \`table\`, column_name as \`column\`,
+              referenced_table_name as refTable, referenced_column_name as refColumn
+         from information_schema.key_column_usage
+        where referenced_table_name is not null and table_schema = database()`
+    )
+    return rows as ForeignKey[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

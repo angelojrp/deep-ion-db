@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
   QueryResult,
   RoleInfo,
@@ -88,6 +89,27 @@ export class SqliteDriver implements Driver {
 
   async listRoles(): Promise<RoleInfo[]> {
     return []
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const tables = (
+      this.handle
+        .prepare(`select name from sqlite_master where type='table' and name not like 'sqlite_%'`)
+        .all() as { name: string }[]
+    ).map((r) => r.name)
+    const fks: ForeignKey[] = []
+    for (const t of tables) {
+      const quoted = `"${t.replace(/"/g, '""')}"`
+      const rows = this.handle.prepare(`PRAGMA foreign_key_list(${quoted})`).all() as {
+        table: string
+        from: string
+        to: string
+      }[]
+      for (const r of rows) {
+        fks.push({ table: t, column: r.from, refTable: r.table, refColumn: r.to })
+      }
+    }
+    return fks
   }
 
   async serverHealth(): Promise<HealthMetric[]> {

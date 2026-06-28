@@ -381,6 +381,29 @@ export default function App(): JSX.Element {
     })
   }, [])
 
+  const generateEr = useCallback(async () => {
+    const cid = activeTab?.connectionId
+    if (!cid) return
+    const [tables, fks] = await Promise.all([
+      window.api.db.listTables(cid),
+      window.api.db.foreignKeys(cid)
+    ])
+    const san = (s: string): string => s.replace(/[^a-zA-Z0-9_]/g, '_')
+    const lines = [
+      '# Diagrama ER',
+      '',
+      '> Renderiza em visualizadores compatíveis com Mermaid (GitHub, VS Code, etc.).',
+      '',
+      '```mermaid',
+      'erDiagram'
+    ]
+    for (const t of tables) lines.push(`  ${san(t.name)} {`, `  }`)
+    for (const fk of fks)
+      lines.push(`  ${san(fk.refTable)} ||--o{ ${san(fk.table)} : "${fk.column}"`)
+    lines.push('```')
+    openDoc('er.md', lines.join('\n'))
+  }, [activeTab, openDoc])
+
   return (
     <div className="app">
       <Sidebar
@@ -483,6 +506,14 @@ export default function App(): JSX.Element {
                 title="Comparar schemas (requer 2 conexões)"
               >
                 Diff
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={generateEr}
+                disabled={!activeTab?.connectionId}
+                title="Diagrama ER (Mermaid)"
+              >
+                ER
               </button>
               <button
                 className="ghost-btn"

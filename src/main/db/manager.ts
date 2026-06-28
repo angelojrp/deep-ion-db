@@ -2,6 +2,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
   QueryResult,
   RoleInfo,
@@ -97,5 +98,9 @@ export class DbManager {
 
   serverHealth(id: string): Promise<HealthMetric[]> {
     return this.get(id).serverHealth()
+  }
+
+  foreignKeys(id: string): Promise<ForeignKey[]> {
+    return this.get(id).foreignKeys()
   }
 }

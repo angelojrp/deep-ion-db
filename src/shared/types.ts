@@ -73,6 +73,14 @@ export interface HealthMetric {
   value: string
 }
 
+/** Chave estrangeira (para diagrama ER). */
+export interface ForeignKey {
+  table: string
+  column: string
+  refTable: string
+  refColumn: string
+}
+
 /** Usuário/role do servidor de banco. */
 export interface RoleInfo {
   name: string
@@ -104,6 +112,7 @@ export interface DbApi {
   killSession(id: string, pid: string | number): Promise<void>
   listRoles(id: string): Promise<RoleInfo[]>
   serverHealth(id: string): Promise<HealthMetric[]>
+  foreignKeys(id: string): Promise<ForeignKey[]>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */
