@@ -34,6 +34,25 @@ function getKeySet(): JWTVerifyGetKey {
   return keySet
 }
 
+/**
+ * Valida a configuração OIDC ao iniciar. Se AUTH_DISABLED não estiver ativo e
+ * OIDC_ISSUER ou OIDC_AUDIENCE não estiverem definidos, lança erro para evitar
+ * operar sem validar essas claims (fail-closed).
+ */
+export function assertOidcConfigured(): void {
+  if (authDisabled()) return
+  if (!issuer) {
+    throw new Error(
+      '[auth] OIDC_ISSUER não configurado. Defina a variável ou use AUTH_DISABLED=true.'
+    )
+  }
+  if (!audience) {
+    throw new Error(
+      '[auth] OIDC_AUDIENCE não configurado. Defina a variável ou use AUTH_DISABLED=true.'
+    )
+  }
+}
+
 /** Verifica um token; `keys` permite injetar um JWKS local (testes). */
 export async function verifyToken(token: string, keys?: JWTVerifyGetKey): Promise<JWTPayload> {
   const { payload } = await jwtVerify(token, keys ?? getKeySet(), {
