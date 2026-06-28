@@ -366,10 +366,11 @@ button.link:hover {
 }
 
 .sql-pane {
-  display: grid;
-  grid-template-rows: auto 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .tabs {
@@ -482,12 +483,26 @@ button.link:hover {
 }
 
 .editor-pane {
-  min-height: 0;
+  min-height: 80px;
+  overflow: hidden;
+}
+
+.pane-resizer {
+  flex: 0 0 6px;
+  height: 6px;
+  cursor: row-resize;
+  background: var(--bg-alt);
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
 
+.pane-resizer:hover {
+  background: var(--accent);
+}
+
 .results-pane {
-  min-height: 0;
+  flex: 1 1 0;
+  min-height: 120px;
   overflow: auto;
   background: var(--bg);
 }
