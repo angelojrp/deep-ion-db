@@ -5,8 +5,10 @@ import type {
   Driver,
   ForeignKey,
   HealthMetric,
+  IndexInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -148,6 +150,23 @@ export class MysqlDriver implements Driver {
         where referenced_table_name is not null and table_schema = database()`
     )
     return rows as ForeignKey[]
+  }
+
+  async indexes(schema: string, table: string): Promise<IndexInfo[]> {
+    const [rows] = await this.connection.query(
+      `select distinct index_name as name from information_schema.statistics
+        where table_schema = ? and table_name = ?`,
+      [schema, table]
+    )
+    return (rows as Record<string, string>[]).map((r) => ({ name: r.name }))
+  }
+
+  async routines(): Promise<RoutineInfo[]> {
+    const [rows] = await this.connection.query(
+      `select routine_name as name, routine_type as type from information_schema.routines
+        where routine_schema = database() order by routine_name`
+    )
+    return rows as RoutineInfo[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

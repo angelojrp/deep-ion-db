@@ -5,8 +5,10 @@ import type {
   Driver,
   ForeignKey,
   HealthMetric,
+  IndexInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -142,6 +144,23 @@ export class PostgresDriver implements Driver {
           and tc.table_schema not in ('pg_catalog', 'information_schema')`
     )
     return res.rows as ForeignKey[]
+  }
+
+  async indexes(schema: string, table: string): Promise<IndexInfo[]> {
+    const res = await this.client.query(
+      `select indexname as name, indexdef as detail from pg_indexes where schemaname = $1 and tablename = $2`,
+      [schema, table]
+    )
+    return res.rows as IndexInfo[]
+  }
+
+  async routines(schema: string): Promise<RoutineInfo[]> {
+    const res = await this.client.query(
+      `select routine_name as name, routine_type as type from information_schema.routines
+        where specific_schema = $1 order by routine_name`,
+      [schema]
+    )
+    return res.rows as RoutineInfo[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {
