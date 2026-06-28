@@ -9,3 +9,7 @@ dist/
 
 # Claude Code — configurações pessoais (não versionar)
 .claude/settings.local.json
+
+# Segredos de deploy
+.env
+deploy/k8s/secret.yaml
