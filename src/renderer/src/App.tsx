@@ -1,4 +1,11 @@
-import { type JSX, useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type JSX,
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react'
 import type {
   ConnectionConfig,
   ConnectionSummary,
@@ -125,6 +132,31 @@ export default function App(): JSX.Element {
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
   const editorApi = useRef<SqlEditorApi | null>(null)
   const schemaCache = useRef(new Map<string, SchemaTable[]>())
+
+  // Altura (px) da área do editor; o restante fica para os resultados (sempre visíveis).
+  const [editorHeight, setEditorHeight] = useState<number>(() => {
+    const v = Number(localStorage.getItem('editorHeight'))
+    return v >= 80 ? v : 320
+  })
+  useEffect(() => {
+    localStorage.setItem('editorHeight', String(editorHeight))
+  }, [editorHeight])
+
+  function startResize(e: ReactMouseEvent): void {
+    e.preventDefault()
+    const startY = e.clientY
+    const startH = editorHeight
+    const onMove = (ev: MouseEvent): void => {
+      const max = Math.max(120, window.innerHeight - 220)
+      setEditorHeight(Math.min(max, Math.max(80, startH + (ev.clientY - startY))))
+    }
+    const onUp = (): void => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
   const refreshSaved = useCallback(async () => {
     setSaved(await window.api.conn.list())
@@ -571,7 +603,7 @@ export default function App(): JSX.Element {
               </span>
             </div>
 
-            <div className="editor-pane">
+            <div className="editor-pane" style={{ flex: `0 0 ${editorHeight}px` }}>
               {activeTab && (
                 <SqlEditor
                   key={activeTab.id}
@@ -585,6 +617,14 @@ export default function App(): JSX.Element {
                 />
               )}
             </div>
+
+            <div
+              className="pane-resizer"
+              onMouseDown={startResize}
+              title="Arraste para redimensionar"
+              role="separator"
+              aria-orientation="horizontal"
+            />
 
             <div className="results-pane">
               {activeTab?.error ? (
