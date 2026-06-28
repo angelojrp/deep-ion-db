@@ -10,6 +10,7 @@ import type {
 import DatabaseExplorer from './DatabaseExplorer'
 import WorkspacePanel from './WorkspacePanel'
 import { useCaps } from '../api'
+import { useServerMode } from '../serverMode'
 
 interface Props {
   connections: ConnectionSummary[]
@@ -59,6 +60,7 @@ export default function Sidebar({
   onToggleTheme
 }: Props): JSX.Element {
   const caps = useCaps()
+  const serverMode = useServerMode()
   const hasAny = connections.length > 0 || saved.length > 0
   const [showForm, setShowForm] = useState(!hasAny && caps.adHocConnections)
   const [kind, setKind] = useState<DbKind>('postgres')
@@ -131,8 +133,28 @@ export default function Sidebar({
               {showForm ? '×' : '＋'}
             </button>
           )}
+          {caps.serverMode && serverMode && serverMode.mode === 'local' && (
+            <button className="icon-btn" title="Conectar ao servidor" onClick={serverMode.open}>
+              ☁
+            </button>
+          )}
+          {caps.serverMode && serverMode && serverMode.mode === 'server' && (
+            <button
+              className="icon-btn"
+              title={`Conectado a ${serverMode.serverLabel} — desconectar`}
+              onClick={serverMode.disconnect}
+            >
+              ⏏
+            </button>
+          )}
         </span>
       </div>
+
+      {serverMode?.mode === 'server' && (
+        <div className="server-badge" title={serverMode.serverLabel ?? ''}>
+          ☁ Servidor: {serverMode.serverLabel}
+        </div>
+      )}
 
       {showForm && caps.adHocConnections && (
         <form className="conn-form" onSubmit={submit}>

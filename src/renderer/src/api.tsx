@@ -57,5 +57,6 @@ export const DESKTOP_CAPABILITIES: Capabilities = {
   editableGrid: true,
   history: true,
   ai: true,
-  exportResults: true
+  exportResults: true,
+  serverMode: true
 }

@@ -69,7 +69,8 @@ export const WEB_CAPABILITIES: Capabilities = {
   editableGrid: false,
   history: true,
   ai: false,
-  exportResults: true
+  exportResults: true,
+  serverMode: false
 }
 
 export const httpApi: AppApi = {
