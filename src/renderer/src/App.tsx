@@ -7,6 +7,7 @@ import {
   useState
 } from 'react'
 import type {
+  AppApi,
   ConnectionConfig,
   ConnectionSummary,
   QueryResult,
@@ -28,7 +29,8 @@ import AiSettingsPanel from './components/AiSettingsPanel'
 import AiAssistantPanel from './components/AiAssistantPanel'
 import DiffPanel from './components/DiffPanel'
 import JobsPanel from './components/JobsPanel'
-import { setActiveSchema } from './sqlCompletion'
+import { setActiveSchema, setCompletionApi } from './sqlCompletion'
+import { useApi, useCaps } from './api'
 
 type TabKind = 'sql' | 'markdown'
 
@@ -84,6 +86,7 @@ function createTab(title: string, kind: TabKind = 'sql'): EditorTab {
 
 /** Monta o contexto de edição (tabela + PK) se a query for editável; senão null. */
 async function computeEditCtx(
+  api: AppApi,
   connectionId: string,
   kind: ConnectionSummary['kind'] | undefined,
   sql: string,
@@ -96,7 +99,7 @@ async function computeEditCtx(
     parsed.schema ?? (kind === 'sqlite' ? 'main' : kind === 'postgres' ? 'public' : null)
   if (!schema) return null
   try {
-    const pk = await window.api.db.primaryKeys(connectionId, schema, parsed.table)
+    const pk = await api.db.primaryKeys(connectionId, schema, parsed.table)
     const pkCols = pk.every((c) => columns.includes(c)) ? pk : []
     return { connectionId, kind, schema, table: parsed.table, pkCols }
   } catch {
@@ -132,6 +135,13 @@ export default function App(): JSX.Element {
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
   const editorApi = useRef<SqlEditorApi | null>(null)
   const schemaCache = useRef(new Map<string, SchemaTable[]>())
+  const api = useApi()
+  const caps = useCaps()
+
+  // Injeta a API no autocomplete (desktop: window.api; web: cliente HTTP).
+  useEffect(() => {
+    setCompletionApi(api)
+  }, [api])
 
   // Altura (px) da área do editor; o restante fica para os resultados (sempre visíveis).
   const [editorHeight, setEditorHeight] = useState<number>(() => {
@@ -159,16 +169,16 @@ export default function App(): JSX.Element {
   }
 
   const refreshSaved = useCallback(async () => {
-    setSaved(await window.api.conn.list())
-  }, [])
+    setSaved(await api.conn.list())
+  }, [api])
 
   useEffect(() => {
     refreshSaved().catch(() => {})
-    window.api.ws
+    api.ws
       .current()
       .then((w) => setWorkspace(w))
       .catch(() => {})
-  }, [refreshSaved])
+  }, [api, refreshSaved])
 
   // Alimenta o autocomplete com o schema da conexão da aba ativa.
   const tabConnId = activeTab?.connectionId ?? null
@@ -184,7 +194,7 @@ export default function App(): JSX.Element {
       return
     }
     let cancelled = false
-    window.api.db
+    api.db
       .listTables(tabConnId)
       .then((ts) => {
         if (cancelled) return
@@ -195,7 +205,7 @@ export default function App(): JSX.Element {
     return () => {
       cancelled = true
     }
-  }, [tabConnId, tabKind])
+  }, [api, tabConnId, tabKind])
 
   const updateTab = useCallback((id: string, patch: Partial<EditorTab>) => {
     setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
@@ -239,37 +249,40 @@ export default function App(): JSX.Element {
 
   const handleConnect = useCallback(
     async (config: ConnectionConfig, persist: boolean) => {
-      await window.api.db.connect(config)
+      await api.db.connect(config)
       if (persist) {
-        await window.api.conn.save(config)
+        await api.conn.save(config)
         await refreshSaved()
       }
       targetNewConnection({ id: config.id, name: config.name, kind: config.kind })
     },
-    [refreshSaved, targetNewConnection]
+    [api, refreshSaved, targetNewConnection]
   )
 
   const handleConnectSaved = useCallback(
     async (s: SavedConnection) => {
-      await window.api.conn.connect(s.id)
+      await api.conn.connect(s.id)
       targetNewConnection({ id: s.id, name: s.name, kind: s.kind })
     },
-    [targetNewConnection]
+    [api, targetNewConnection]
   )
 
   const handleDeleteSaved = useCallback(
     async (id: string) => {
-      await window.api.conn.remove(id)
+      await api.conn.remove(id)
       await refreshSaved()
     },
-    [refreshSaved]
+    [api, refreshSaved]
   )
 
-  const handleDisconnect = useCallback(async (id: string) => {
-    await window.api.db.disconnect(id)
-    setConnections((prev) => prev.filter((c) => c.id !== id))
-    setTabs((prev) => prev.map((t) => (t.connectionId === id ? { ...t, connectionId: null } : t)))
-  }, [])
+  const handleDisconnect = useCallback(
+    async (id: string) => {
+      await api.db.disconnect(id)
+      setConnections((prev) => prev.filter((c) => c.id !== id))
+      setTabs((prev) => prev.map((t) => (t.connectionId === id ? { ...t, connectionId: null } : t)))
+    },
+    [api]
+  )
 
   const runQuery = useCallback(async () => {
     if (!activeTab) return
@@ -282,10 +295,10 @@ export default function App(): JSX.Element {
     const conn = connections.find((c) => c.id === connectionId)
     updateTab(id, { running: true, error: null })
     try {
-      const res = await window.api.db.query(connectionId, sql)
-      const editCtx = await computeEditCtx(connectionId, conn?.kind, sql, res.columns)
+      const res = await api.db.query(connectionId, sql)
+      const editCtx = await computeEditCtx(api, connectionId, conn?.kind, sql, res.columns)
       updateTab(id, { result: res, running: false, editCtx })
-      void window.api.hist.add({
+      void api.hist.add({
         sql,
         connectionName: conn?.name ?? '—',
         kind: conn?.kind,
@@ -301,7 +314,7 @@ export default function App(): JSX.Element {
         running: false,
         editCtx: null
       })
-      void window.api.hist.add({
+      void api.hist.add({
         sql,
         connectionName: conn?.name ?? '—',
         kind: conn?.kind,
@@ -311,7 +324,7 @@ export default function App(): JSX.Element {
         ok: false
       })
     }
-  }, [activeTab, updateTab, connections])
+  }, [api, activeTab, updateTab, connections])
 
   const explainQuery = useCallback(async () => {
     if (!activeTab?.connectionId) {
@@ -323,7 +336,7 @@ export default function App(): JSX.Element {
     const { id, connectionId } = activeTab
     updateTab(id, { running: true, error: null })
     try {
-      const res = await window.api.db.query(connectionId, prefix + base)
+      const res = await api.db.query(connectionId, prefix + base)
       updateTab(id, { result: res, running: false, editCtx: null })
     } catch (e) {
       updateTab(id, {
@@ -333,17 +346,17 @@ export default function App(): JSX.Element {
         editCtx: null
       })
     }
-  }, [activeTab, activeConn, updateTab, updateActiveTab])
+  }, [api, activeTab, activeConn, updateTab, updateActiveTab])
 
   // ----- Workspace -----
   const openWorkspace = useCallback(async () => {
-    const w = await window.api.ws.open()
+    const w = await api.ws.open()
     if (w) setWorkspace(w)
-  }, [])
+  }, [api])
 
   const refreshWorkspace = useCallback(async () => {
-    setWorkspace(await window.api.ws.refresh())
-  }, [])
+    setWorkspace(await api.ws.refresh())
+  }, [api])
 
   const openFile = useCallback(
     async (entry: WsEntry) => {
@@ -352,7 +365,7 @@ export default function App(): JSX.Element {
         setActiveTabId(existing.id)
         return
       }
-      const content = await window.api.ws.read(entry.path)
+      const content = await api.ws.read(entry.path)
       const tab: EditorTab = {
         ...createTab(entry.name, kindFromName(entry.name)),
         filePath: entry.path,
@@ -363,43 +376,43 @@ export default function App(): JSX.Element {
       setTabs((prev) => [...prev, tab])
       setActiveTabId(tab.id)
     },
-    [tabs, activeTab]
+    [api, tabs, activeTab]
   )
 
   const saveActive = useCallback(async () => {
     if (!activeTab) return
     if (activeTab.filePath) {
-      await window.api.ws.write(activeTab.filePath, activeTab.content)
+      await api.ws.write(activeTab.filePath, activeTab.content)
       updateTab(activeTab.id, { dirty: false })
     } else {
       const def = `${activeTab.title}.${activeTab.kind === 'markdown' ? 'md' : 'sql'}`
-      const path = await window.api.ws.saveAs(def, activeTab.content)
+      const path = await api.ws.saveAs(def, activeTab.content)
       if (path) {
         updateTab(activeTab.id, { filePath: path, title: baseName(path), dirty: false })
         await refreshWorkspace()
       }
     }
-  }, [activeTab, updateTab, refreshWorkspace])
+  }, [api, activeTab, updateTab, refreshWorkspace])
 
   const newFile = useCallback(
     async (dir: string) => {
       const name = window.prompt('Nome do arquivo (ex.: consulta.sql ou notas.md):')
       if (!name) return
-      const entry = await window.api.ws.create(dir, name)
+      const entry = await api.ws.create(dir, name)
       await refreshWorkspace()
       await openFile(entry)
     },
-    [refreshWorkspace, openFile]
+    [api, refreshWorkspace, openFile]
   )
 
   const deleteFile = useCallback(
     async (entry: WsEntry) => {
       if (!window.confirm(`Excluir "${entry.name}"?`)) return
-      await window.api.ws.remove(entry.path)
+      await api.ws.remove(entry.path)
       setTabs((prev) => prev.filter((t) => t.filePath !== entry.path))
       await refreshWorkspace()
     },
-    [refreshWorkspace]
+    [api, refreshWorkspace]
   )
 
   const onContentChange = useCallback(
@@ -418,10 +431,7 @@ export default function App(): JSX.Element {
   const generateEr = useCallback(async () => {
     const cid = activeTab?.connectionId
     if (!cid) return
-    const [tables, fks] = await Promise.all([
-      window.api.db.listTables(cid),
-      window.api.db.foreignKeys(cid)
-    ])
+    const [tables, fks] = await Promise.all([api.db.listTables(cid), api.db.foreignKeys(cid)])
     const san = (s: string): string => s.replace(/[^a-zA-Z0-9_]/g, '_')
     const lines = [
       '# Diagrama ER',
@@ -436,7 +446,7 @@ export default function App(): JSX.Element {
       lines.push(`  ${san(fk.refTable)} ||--o{ ${san(fk.table)} : "${fk.column}"`)
     lines.push('```')
     openDoc('er.md', lines.join('\n'))
-  }, [activeTab, openDoc])
+  }, [api, activeTab, openDoc])
 
   return (
     <div className="app">
@@ -502,89 +512,109 @@ export default function App(): JSX.Element {
               >
                 Formatar
               </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowHistory(true)}
-                title="Histórico de queries"
-              >
-                🕘 Histórico
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowSessions(true)}
-                disabled={!activeTab?.connectionId}
-                title="Sessões ativas no servidor"
-              >
-                Sessões
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowRoles(true)}
-                disabled={!activeTab?.connectionId}
-                title="Usuários e roles"
-              >
-                Usuários
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowHealth(true)}
-                disabled={!activeTab?.connectionId}
-                title="Saúde do servidor"
-              >
-                Saúde
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowDiff(true)}
-                disabled={connections.length < 2}
-                title="Comparar schemas (requer 2 conexões)"
-              >
-                Diff
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={generateEr}
-                disabled={!activeTab?.connectionId}
-                title="Diagrama ER (Mermaid)"
-              >
-                ER
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowJobs(true)}
-                disabled={!activeTab?.connectionId}
-                title="Jobs agendados"
-              >
-                Jobs
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={async () => {
-                  const cid = activeTab?.connectionId
-                  if (!cid) return
-                  const r = await window.api.db.backup(cid)
-                  if (r.ok) window.alert(`Backup salvo em ${r.path}`)
-                  else if (r.error) window.alert('Backup falhou: ' + r.error)
-                }}
-                disabled={!activeTab?.connectionId}
-                title="Backup do banco (pg_dump/mysqldump/cópia)"
-              >
-                Backup
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowAssistant(true)}
-                title="Assistente IA (NL→SQL, explicar, chat)"
-              >
-                ✨ Assistente
-              </button>
-              <button
-                className="ghost-btn"
-                onClick={() => setShowAi(true)}
-                title="Configuração de IA"
-              >
-                IA
-              </button>
+              {caps.history && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowHistory(true)}
+                  title="Histórico de queries"
+                >
+                  🕘 Histórico
+                </button>
+              )}
+              {caps.sessions && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowSessions(true)}
+                  disabled={!activeTab?.connectionId}
+                  title="Sessões ativas no servidor"
+                >
+                  Sessões
+                </button>
+              )}
+              {caps.roles && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowRoles(true)}
+                  disabled={!activeTab?.connectionId}
+                  title="Usuários e roles"
+                >
+                  Usuários
+                </button>
+              )}
+              {caps.health && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowHealth(true)}
+                  disabled={!activeTab?.connectionId}
+                  title="Saúde do servidor"
+                >
+                  Saúde
+                </button>
+              )}
+              {caps.schemaDiff && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowDiff(true)}
+                  disabled={connections.length < 2}
+                  title="Comparar schemas (requer 2 conexões)"
+                >
+                  Diff
+                </button>
+              )}
+              {caps.erDiagram && (
+                <button
+                  className="ghost-btn"
+                  onClick={generateEr}
+                  disabled={!activeTab?.connectionId}
+                  title="Diagrama ER (Mermaid)"
+                >
+                  ER
+                </button>
+              )}
+              {caps.jobs && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowJobs(true)}
+                  disabled={!activeTab?.connectionId}
+                  title="Jobs agendados"
+                >
+                  Jobs
+                </button>
+              )}
+              {caps.backup && (
+                <button
+                  className="ghost-btn"
+                  onClick={async () => {
+                    const cid = activeTab?.connectionId
+                    if (!cid) return
+                    const r = await api.db.backup(cid)
+                    if (r.ok) window.alert(`Backup salvo em ${r.path}`)
+                    else if (r.error) window.alert('Backup falhou: ' + r.error)
+                  }}
+                  disabled={!activeTab?.connectionId}
+                  title="Backup do banco (pg_dump/mysqldump/cópia)"
+                >
+                  Backup
+                </button>
+              )}
+              {caps.ai && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowAssistant(true)}
+                  title="Assistente IA (NL→SQL, explicar, chat)"
+                >
+                  ✨ Assistente
+                </button>
+              )}
+              {caps.ai && (
+                <button
+                  className="ghost-btn"
+                  onClick={() => setShowAi(true)}
+                  title="Configuração de IA"
+                >
+                  IA
+                </button>
+              )}
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"

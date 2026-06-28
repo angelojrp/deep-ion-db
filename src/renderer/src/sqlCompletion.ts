@@ -1,5 +1,11 @@
 import type * as Monaco from 'monaco-editor'
-import type { ColumnInfo, DbKind, SchemaTable } from '@shared/types'
+import type { AppApi, ColumnInfo, DbKind, SchemaTable } from '@shared/types'
+
+/** API de dados injetada (desktop: window.api; web: cliente HTTP). */
+let apiRef: AppApi | null = null
+export function setCompletionApi(api: AppApi): void {
+  apiRef = api
+}
 
 interface SchemaState {
   connectionId: string | null
@@ -62,9 +68,9 @@ async function getColumns(table: SchemaTable): Promise<ColumnInfo[]> {
   const key = `${state.connectionId}:${table.schema}.${table.name}`
   const cached = colCache.get(key)
   if (cached) return cached
-  if (!state.connectionId) return []
+  if (!state.connectionId || !apiRef) return []
   try {
-    const cols = await window.api.db.listColumns(state.connectionId, table.schema, table.name)
+    const cols = await apiRef.db.listColumns(state.connectionId, table.schema, table.name)
     colCache.set(key, cols)
     return cols
   } catch {

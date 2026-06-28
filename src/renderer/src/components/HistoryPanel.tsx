@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { HistoryEntry } from '@shared/types'
+import { useApi } from '../api'
 
 interface Props {
   onClose: () => void
@@ -10,13 +11,14 @@ export default function HistoryPanel({ onClose, onPick }: Props): JSX.Element {
   const [items, setItems] = useState<HistoryEntry[]>([])
   const [q, setQ] = useState('')
   const [favOnly, setFavOnly] = useState(false)
+  const api = useApi()
 
   const load = useCallback(() => {
-    window.api.hist
+    api.hist
       .list()
       .then(setItems)
       .catch(() => {})
-  }, [])
+  }, [api])
 
   useEffect(() => {
     load()
@@ -27,16 +29,16 @@ export default function HistoryPanel({ onClose, onPick }: Props): JSX.Element {
   )
 
   async function toggleFav(id: string): Promise<void> {
-    await window.api.hist.toggleFavorite(id)
+    await api.hist.toggleFavorite(id)
     load()
   }
   async function remove(id: string): Promise<void> {
-    await window.api.hist.remove(id)
+    await api.hist.remove(id)
     load()
   }
   async function clear(): Promise<void> {
     if (window.confirm('Limpar histórico? (favoritos são mantidos)')) {
-      await window.api.hist.clear()
+      await api.hist.clear()
       load()
     }
   }

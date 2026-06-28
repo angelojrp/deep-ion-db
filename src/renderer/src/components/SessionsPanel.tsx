@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { SessionInfo } from '@shared/types'
+import { useApi } from '../api'
 
 interface Props {
   connectionId: string
@@ -10,16 +11,17 @@ export default function SessionsPanel({ connectionId, onClose }: Props): JSX.Ele
   const [items, setItems] = useState<SessionInfo[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const api = useApi()
 
   const load = useCallback(() => {
     setLoading(true)
     setErr(null)
-    window.api.db
+    api.db
       .activeSessions(connectionId)
       .then(setItems)
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [connectionId])
+  }, [api, connectionId])
 
   useEffect(() => {
     load()
@@ -28,7 +30,7 @@ export default function SessionsPanel({ connectionId, onClose }: Props): JSX.Ele
   async function kill(pid: string | number): Promise<void> {
     if (!window.confirm(`Encerrar a sessão ${pid}?`)) return
     try {
-      await window.api.db.killSession(connectionId, pid)
+      await api.db.killSession(connectionId, pid)
       load()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))

@@ -1,5 +1,6 @@
 import { type JSX, useEffect, useState } from 'react'
 import type { AIProviderKind } from '@shared/types'
+import { useApi } from '../api'
 
 const DEFAULT_MODEL: Record<AIProviderKind, string> = {
   anthropic: 'claude-opus-4-8',
@@ -14,9 +15,10 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
   const [hasKey, setHasKey] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const api = useApi()
 
   useEffect(() => {
-    window.api.ai
+    api.ai
       .getConfig()
       .then((c) => {
         if (c) {
@@ -27,7 +29,7 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
         }
       })
       .catch(() => {})
-  }, [])
+  }, [api])
 
   function changeKind(k: AIProviderKind): void {
     setKind(k)
@@ -37,7 +39,7 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
   async function save(): Promise<void> {
     setErr(null)
     try {
-      const c = await window.api.ai.setConfig({
+      const c = await api.ai.setConfig({
         kind,
         model,
         baseUrl: baseUrl || undefined,

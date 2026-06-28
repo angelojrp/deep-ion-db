@@ -280,6 +280,31 @@ async function main(): Promise<void> {
     }
   })
 
+  // Colunas de uma tabela (explorer da UI unificada).
+  app.post<{ Params: { id: string }; Body: { schema: string; table: string } }>(
+    '/api/data-sources/:id/columns',
+    async (req, reply) => {
+      const user = req.user!
+      const mode = user.role === 'admin' ? 'readwrite' : await getGrantMode(user.id, req.params.id)
+      if (!mode) {
+        reply.code(403)
+        return { error: 'sem acesso a este data source' }
+      }
+      const config = await getDataSourceConfig(req.params.id)
+      if (!config) {
+        reply.code(404)
+        return { error: 'data source não encontrado' }
+      }
+      const driver = new PostgresDriver(config)
+      try {
+        await driver.connect()
+        return { columns: await driver.listColumns(req.body.schema, req.body.table) }
+      } finally {
+        await driver.disconnect().catch(() => {})
+      }
+    }
+  )
+
   // ----- Auditoria (#63) -----
   app.get('/api/audit', async (req, reply) => {
     if (req.user?.role !== 'admin') {

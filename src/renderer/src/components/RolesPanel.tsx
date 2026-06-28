@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { RoleInfo } from '@shared/types'
+import { useApi } from '../api'
 
 interface Props {
   connectionId: string
@@ -11,16 +12,17 @@ export default function RolesPanel({ connectionId, onInsertSql, onClose }: Props
   const [roles, setRoles] = useState<RoleInfo[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const api = useApi()
 
   const load = useCallback(() => {
     setLoading(true)
     setErr(null)
-    window.api.db
+    api.db
       .listRoles(connectionId)
       .then(setRoles)
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [connectionId])
+  }, [api, connectionId])
 
   useEffect(() => {
     load()

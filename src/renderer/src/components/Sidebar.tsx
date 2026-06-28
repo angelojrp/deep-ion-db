@@ -9,6 +9,7 @@ import type {
 } from '@shared/types'
 import DatabaseExplorer from './DatabaseExplorer'
 import WorkspacePanel from './WorkspacePanel'
+import { useCaps } from '../api'
 
 interface Props {
   connections: ConnectionSummary[]
@@ -57,8 +58,9 @@ export default function Sidebar({
   theme,
   onToggleTheme
 }: Props): JSX.Element {
+  const caps = useCaps()
   const hasAny = connections.length > 0 || saved.length > 0
-  const [showForm, setShowForm] = useState(!hasAny)
+  const [showForm, setShowForm] = useState(!hasAny && caps.adHocConnections)
   const [kind, setKind] = useState<DbKind>('postgres')
   const [name, setName] = useState('')
   const [host, setHost] = useState('localhost')
@@ -120,17 +122,19 @@ export default function Sidebar({
           >
             {theme === 'dark' ? '☀' : '🌙'}
           </button>
-          <button
-            className="icon-btn"
-            title={showForm ? 'Fechar' : 'Nova conexão'}
-            onClick={() => setShowForm((v) => !v)}
-          >
-            {showForm ? '×' : '＋'}
-          </button>
+          {caps.adHocConnections && (
+            <button
+              className="icon-btn"
+              title={showForm ? 'Fechar' : 'Nova conexão'}
+              onClick={() => setShowForm((v) => !v)}
+            >
+              {showForm ? '×' : '＋'}
+            </button>
+          )}
         </span>
       </div>
 
-      {showForm && (
+      {showForm && caps.adHocConnections && (
         <form className="conn-form" onSubmit={submit}>
           <label>
             Tipo
@@ -202,14 +206,16 @@ export default function Sidebar({
         </form>
       )}
 
-      <WorkspacePanel
-        workspace={workspace}
-        onOpen={onOpenWorkspace}
-        onRefresh={onRefreshWorkspace}
-        onOpenFile={onOpenFile}
-        onNewFile={onNewFile}
-        onDelete={onDeleteFile}
-      />
+      {caps.workspaceFiles && (
+        <WorkspacePanel
+          workspace={workspace}
+          onOpen={onOpenWorkspace}
+          onRefresh={onRefreshWorkspace}
+          onOpenFile={onOpenFile}
+          onNewFile={onNewFile}
+          onDelete={onDeleteFile}
+        />
+      )}
 
       <DatabaseExplorer
         connections={connections}

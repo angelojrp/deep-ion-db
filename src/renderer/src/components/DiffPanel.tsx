@@ -1,5 +1,6 @@
 import { type JSX, useState } from 'react'
 import type { ConnectionSummary, SchemaTable } from '@shared/types'
+import { useApi } from '../api'
 
 interface Props {
   connections: ConnectionSummary[]
@@ -16,6 +17,7 @@ export default function DiffPanel({ connections, onOpenDoc, onClose }: Props): J
   const [b, setB] = useState(connections[1]?.id ?? connections[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const api = useApi()
 
   async function compare(): Promise<void> {
     if (!a || !b || a === b) {
@@ -25,7 +27,7 @@ export default function DiffPanel({ connections, onOpenDoc, onClose }: Props): J
     setBusy(true)
     setErr(null)
     try {
-      const [ta, tb] = await Promise.all([window.api.db.listTables(a), window.api.db.listTables(b)])
+      const [ta, tb] = await Promise.all([api.db.listTables(a), api.db.listTables(b)])
       const mapB = new Map(tb.map((t) => [key(t), t]))
       const mapA = new Map(ta.map((t) => [key(t), t]))
       const lines: string[] = [
@@ -50,8 +52,8 @@ export default function DiffPanel({ connections, onOpenDoc, onClose }: Props): J
       const colDiff: string[] = []
       for (const t of common) {
         const [ca, cb] = await Promise.all([
-          window.api.db.listColumns(a, t.schema, t.name),
-          window.api.db.listColumns(b, t.schema, t.name)
+          api.db.listColumns(a, t.schema, t.name),
+          api.db.listColumns(b, t.schema, t.name)
         ])
         const cbNames = new Map(cb.map((c) => [c.name, c]))
         const caNames = new Map(ca.map((c) => [c.name, c]))

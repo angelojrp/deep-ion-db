@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useState } from 'react'
-import type { DbKind, QueryResult, SqlStatement } from '@shared/types'
+import type { AppApi, DbKind, QueryResult, SqlStatement } from '@shared/types'
 import { toCsv, toJson } from '../export'
+import { useApi, useCaps } from '../api'
 
 export interface EditContext {
   connectionId: string
@@ -40,9 +41,9 @@ function qualified(ctx: EditContext): string {
     : `${quoteIdent(ctx.kind, ctx.schema)}.${t}`
 }
 
-async function exportResult(result: QueryResult, kind: 'csv' | 'json'): Promise<void> {
+async function exportResult(api: AppApi, result: QueryResult, kind: 'csv' | 'json'): Promise<void> {
   const content = kind === 'csv' ? toCsv(result) : toJson(result)
-  await window.api.ws.saveAs(`export.${kind}`, content)
+  await api.ws.saveAs(`export.${kind}`, content)
 }
 
 export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Element {
@@ -52,6 +53,8 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
   const [newRows, setNewRows] = useState<Record<string, string>[]>([])
   const [applying, setApplying] = useState(false)
   const [applyError, setApplyError] = useState<string | null>(null)
+  const api = useApi()
+  const caps = useCaps()
 
   useEffect(() => {
     setEditMode(false)
@@ -168,7 +171,7 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
     setApplying(true)
     setApplyError(null)
     try {
-      await window.api.db.execBatch(edit.connectionId, stmts)
+      await api.db.execBatch(edit.connectionId, stmts)
       discard()
       setEditMode(false)
       onApplied?.()
@@ -179,7 +182,7 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
     }
   }
 
-  const canEdit = !!edit && edit.pkCols.length > 0
+  const canEdit = caps.editableGrid && !!edit && edit.pkCols.length > 0
 
   return (
     <div className="grid-wrap">
@@ -207,12 +210,16 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
               </button>
             </>
           )}
-          <button className="link" onClick={() => exportResult(result, 'csv')}>
-            CSV
-          </button>
-          <button className="link" onClick={() => exportResult(result, 'json')}>
-            JSON
-          </button>
+          {caps.exportResults && (
+            <>
+              <button className="link" onClick={() => exportResult(api, result, 'csv')}>
+                CSV
+              </button>
+              <button className="link" onClick={() => exportResult(api, result, 'json')}>
+                JSON
+              </button>
+            </>
+          )}
         </span>
       </div>
       {applyError && <pre className="error">{applyError}</pre>}
