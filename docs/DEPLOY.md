@@ -50,6 +50,8 @@ Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASS
   `OIDC_ISSUER=https://idp.exemplo/realms/seu-realm`, `OIDC_AUDIENCE=deepion`. O JWKS é derivado do
   issuer (Keycloak) ou informe `OIDC_JWKS_URI`. O primeiro usuário autenticado vira **admin**; os
   demais entram como `user` (RBAC). Defina sempre `META_ENCRYPTION_KEY`.
+- **Guia passo a passo do Keycloak** (realm dedicado, client + audience mapper, `OIDC_ISSUER` vs
+  `OIDC_JWKS_URI` em containers e realm pronto para import): veja [keycloak.md](./keycloak.md).
 
 ---
 
