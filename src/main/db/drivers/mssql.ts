@@ -15,11 +15,14 @@ import type {
   SqlStatement
 } from '../types'
 
+import { BaseDriver } from './base'
+
 /** Driver SQL Server (Microsoft) via mssql/tedious (JS puro, sem build nativo). */
-export class MssqlDriver implements Driver {
+export class MssqlDriver extends BaseDriver implements Driver {
   private pool: sql.ConnectionPool
 
   constructor(config: ConnectionConfig) {
+    super()
     this.pool = new sql.ConnectionPool({
       server: config.host ?? 'localhost',
       port: config.port ?? 1433,
@@ -47,21 +50,15 @@ export class MssqlDriver implements Driver {
     if (recordset) {
       const colsMeta = recordset.columns ?? {}
       const columns = Object.keys(colsMeta).sort((a, b) => colsMeta[a].index - colsMeta[b].index)
-      return {
+      return this.normalizeQueryResult(
         columns,
-        rows: Array.from(recordset),
-        rowCount: recordset.length,
+        Array.from(recordset),
+        recordset.length,
         durationMs,
-        command: 'SELECT'
-      }
+        'SELECT'
+      )
     }
-    return {
-      columns: [],
-      rows: [],
-      rowCount: res.rowsAffected?.[0] ?? 0,
-      durationMs,
-      command: 'OK'
-    }
+    return this.normalizeQueryResult([], [], res.rowsAffected?.[0] ?? 0, durationMs, 'OK')
   }
 
   private async params(

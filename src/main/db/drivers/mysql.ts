@@ -15,10 +15,14 @@ import type {
   SqlStatement
 } from '../types'
 
-export class MysqlDriver implements Driver {
+import { BaseDriver } from './base'
+
+export class MysqlDriver extends BaseDriver implements Driver {
   private conn: mysql.Connection | null = null
 
-  constructor(private config: ConnectionConfig) {}
+  constructor(private config: ConnectionConfig) {
+    super()
+  }
 
   async connect(): Promise<void> {
     this.conn = await mysql.createConnection({
@@ -49,23 +53,13 @@ export class MysqlDriver implements Driver {
     const durationMs = performance.now() - start
 
     if (Array.isArray(rows)) {
-      return {
-        columns: ((fields as mysql.FieldPacket[]) ?? []).map((f) => f.name),
-        rows: rows as Record<string, unknown>[],
-        rowCount: rows.length,
-        durationMs,
-        command: 'SELECT'
-      }
+      const columns = ((fields as mysql.FieldPacket[]) ?? []).map((f) => f.name)
+      const data = rows as Record<string, unknown>[]
+      return this.normalizeQueryResult(columns, data, data.length, durationMs, 'SELECT')
     }
 
     const header = rows as mysql.ResultSetHeader
-    return {
-      columns: [],
-      rows: [],
-      rowCount: header.affectedRows ?? 0,
-      durationMs,
-      command: 'OK'
-    }
+    return this.normalizeQueryResult([], [], header.affectedRows ?? 0, durationMs, 'OK')
   }
 
   async listTables(): Promise<SchemaTable[]> {

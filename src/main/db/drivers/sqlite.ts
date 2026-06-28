@@ -6,19 +6,20 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
-  JobInfo,
   QueryResult,
-  RoleInfo,
   RoutineInfo,
   SchemaTable,
-  SessionInfo,
   SqlStatement
 } from '../types'
 
-export class SqliteDriver implements Driver {
+import { BaseDriver } from './base'
+
+export class SqliteDriver extends BaseDriver implements Driver {
   private db: Database.Database | null = null
 
-  constructor(private config: ConnectionConfig) {}
+  constructor(private config: ConnectionConfig) {
+    super()
+  }
 
   async connect(): Promise<void> {
     if (!this.config.filePath) {
@@ -44,23 +45,17 @@ export class SqliteDriver implements Driver {
     if (stmt.reader) {
       const rows = stmt.all() as Record<string, unknown>[]
       const columns = stmt.columns().map((c) => c.name)
-      return {
+      return this.normalizeQueryResult(
         columns,
         rows,
-        rowCount: rows.length,
-        durationMs: performance.now() - start,
-        command: 'SELECT'
-      }
+        rows.length,
+        performance.now() - start,
+        'SELECT'
+      )
     }
 
     const info = stmt.run()
-    return {
-      columns: [],
-      rows: [],
-      rowCount: info.changes,
-      durationMs: performance.now() - start,
-      command: 'OK'
-    }
+    return this.normalizeQueryResult([], [], info.changes, performance.now() - start, 'OK')
   }
 
   async primaryKeys(_schema: string, table: string): Promise<string[]> {
@@ -82,10 +77,6 @@ export class SqliteDriver implements Driver {
     tx(statements)
   }
 
-  async activeSessions(): Promise<SessionInfo[]> {
-    return []
-  }
-
   async killSession(): Promise<void> {
     throw new Error('SQLite (arquivo local) não possui sessões.')
   }
@@ -100,14 +91,6 @@ export class SqliteDriver implements Driver {
   }
 
   async routines(): Promise<RoutineInfo[]> {
-    return []
-  }
-
-  async jobs(): Promise<JobInfo[]> {
-    return []
-  }
-
-  async listRoles(): Promise<RoleInfo[]> {
     return []
   }
 
@@ -132,7 +115,7 @@ export class SqliteDriver implements Driver {
     return fks
   }
 
-  async serverHealth(): Promise<HealthMetric[]> {
+  override async serverHealth(): Promise<HealthMetric[]> {
     const pageCount = Number(this.handle.pragma('page_count', { simple: true }))
     const pageSize = Number(this.handle.pragma('page_size', { simple: true }))
     const tables = (
