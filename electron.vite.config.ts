@@ -19,6 +19,7 @@ export default defineConfig({
     resolve: {
       alias: {
         ...sharedAlias,
+        '@ai': resolve(__dirname, 'src/ai'),
         '@renderer': resolve(__dirname, 'src/renderer/src')
       }
     },

@@ -3,6 +3,7 @@ import { OpenAIProvider } from './openai'
 import type { AIProvider, AIProviderConfig, AIProviderKind } from './types'
 
 export * from './types'
+export * from './features'
 
 /** Modelos padrão por provedor (sempre os mais capazes/recentes). */
 export const DEFAULT_MODELS: Record<AIProviderKind, string> = {
