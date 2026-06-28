@@ -665,3 +665,50 @@
     max-height: 90vh;
   }
 }
+
+/* Topbar da app web (logout + admin-fab alinhados) */
+.web-topbar {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Botão de logout */
+.logout-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #444);
+  background: transparent;
+  color: var(--text, #e0e0e0);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.logout-btn:hover {
+  background: var(--danger, #c0392b);
+  color: #fff;
+  border-color: transparent;
+}
+
+/* Badge de modo dev / auth desabilitada */
+.auth-disabled-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #7c4a00;
+  color: #ffc;
+  border: 1px solid #b36a00;
+  white-space: nowrap;
+}
+
+/* Ações no header do admin panel */
+.admin-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
