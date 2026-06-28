@@ -15,7 +15,7 @@
     "typecheck:server": "tsc --noEmit -p server/tsconfig.json",
     "typecheck:webapp": "tsc --noEmit -p web/tsconfig.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web && npm run typecheck:server && npm run typecheck:webapp",
-    "web:build": "esbuild web/src/app.tsx --bundle --format=esm --outfile=web/public/app.js --jsx=automatic --minify",
+    "web:build": "node scripts/build-web.mjs",
     "server:dev": "tsx watch server/src/index.ts",
     "server:start": "tsx server/src/index.ts",
     "test": "vitest run",

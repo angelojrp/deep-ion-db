@@ -29,6 +29,9 @@ Baixe o instalador da sua plataforma na página de **[Releases](https://github.c
 
 Além do app desktop, há uma **versão web** (broker de acesso a bancos com SSO, data sources
 gerenciados, grants e auditoria) — épico [#53](https://github.com/angelojrp/deep-ion-db/issues/53).
+A web **reaproveita a mesma UI do desktop** (editor, abas, explorer, grid): uma única base React
+recebe a camada de acesso por injeção (`window.api` no Electron, cliente HTTP no web) e ajusta os
+recursos por **capabilities** — no web os data sources já vêm configurados pelo servidor.
 Para subir o ambiente via **Docker Compose** ou **Kubernetes**, veja **[docs/DEPLOY.md](docs/DEPLOY.md)**.
 
 ```bash
