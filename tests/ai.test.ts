@@ -13,7 +13,7 @@ function mockFetch(payload: unknown, ok = true, status = 200): { fn: typeof fetc
     return Promise.resolve({
       ok,
       status,
-      headers: { get: (_: string) => null },
+      headers: { get: () => null },
       json: async () => payload,
       text: async () => (typeof payload === 'string' ? payload : JSON.stringify(payload))
     })
