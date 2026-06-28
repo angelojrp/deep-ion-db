@@ -22,6 +22,12 @@ services:
     environment:
       PORT: 4000
       META_DATABASE_URL: postgres://${META_DB_USER:-deepion}:${META_DB_PASSWORD:-deepion}@meta:5432/${META_DB_NAME:-deepion_meta}
+      META_ENCRYPTION_KEY: ${META_ENCRYPTION_KEY:-dev-insecure-key-change-me}
+      # Auth: para self-host pessoal, AUTH_DISABLED=true. Em produção, configure OIDC e use false.
+      AUTH_DISABLED: ${AUTH_DISABLED:-true}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-}
     ports:
       - '${SERVER_PORT:-4000}:4000'
     depends_on:

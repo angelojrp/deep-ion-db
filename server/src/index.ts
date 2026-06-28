@@ -11,6 +11,13 @@ import {
   type DataSourceInput
 } from './dataSources'
 import { vaultUsingDefaultKey } from './vault'
+import { type AuthUser, authDisabled, devUser, upsertUser, verifyToken } from './auth'
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    user?: AuthUser
+  }
+}
 
 /**
  * Backend web (MVP do épico #53) — reaproveita a camada de drivers do app desktop.
@@ -49,6 +56,29 @@ async function main(): Promise<void> {
     service: 'deep-ion-db-server',
     version: '0.0.1'
   }))
+
+  // Autenticação OIDC (#56) — protege as rotas /api (exceto status público).
+  app.addHook('preHandler', async (req, reply) => {
+    if (!req.url.startsWith('/api')) return
+    if (req.url.startsWith('/api/meta/status')) return
+    if (authDisabled()) {
+      req.user = devUser()
+      return
+    }
+    const header = req.headers.authorization
+    if (!header?.startsWith('Bearer ')) {
+      reply.code(401)
+      return reply.send({ error: 'não autenticado' })
+    }
+    try {
+      req.user = await upsertUser(await verifyToken(header.slice(7)))
+    } catch {
+      reply.code(401)
+      return reply.send({ error: 'token inválido' })
+    }
+  })
+
+  app.get('/api/me', async (req) => req.user ?? null)
 
   app.get('/api/meta/status', async (_req, reply) => {
     if (!metaConfigured()) return { configured: false }
@@ -96,6 +126,10 @@ async function main(): Promise<void> {
   app.get('/api/data-sources', async () => ({ dataSources: await listDataSources() }))
 
   app.post<{ Body: DataSourceInput }>('/api/data-sources', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
     if (!req.body?.name) {
       reply.code(400)
       return { error: 'name é obrigatório.' }
@@ -103,7 +137,11 @@ async function main(): Promise<void> {
     return await createDataSource(req.body)
   })
 
-  app.delete<{ Params: { id: string } }>('/api/data-sources/:id', async (req) => {
+  app.delete<{ Params: { id: string } }>('/api/data-sources/:id', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
     await deleteDataSource(req.params.id)
     return { ok: true }
   })
