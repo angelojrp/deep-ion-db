@@ -8,6 +8,7 @@ import type {
 } from '@shared/types'
 import { seedSystem, stripCodeFences } from '@ai/features'
 import { parseCsv } from '../csv'
+import { useApi, useCaps } from '../api'
 
 interface DataSource {
   id: string
@@ -78,6 +79,7 @@ function ConnectionNode({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const api = useApi()
 
   async function ensureConnected(): Promise<boolean> {
     if (source.connected) return true
@@ -99,7 +101,7 @@ function ConnectionNode({
     setLoading(true)
     setError(null)
     try {
-      const tables = await window.api.db.listTables(source.id)
+      const tables = await api.db.listTables(source.id)
       const map = new Map<string, SchemaTable[]>()
       for (const t of tables) {
         const arr = map.get(t.schema) ?? []
@@ -228,11 +230,12 @@ function SchemaNode({
 function RoutinesNode({ connId, schema }: { connId: string; schema: string }): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
   const [items, setItems] = useState<{ name: string; type: string }[] | null>(null)
+  const api = useApi()
 
   async function toggle(): Promise<void> {
     if (!expanded && !items) {
       try {
-        setItems(await window.api.db.routines(connId, schema))
+        setItems(await api.db.routines(connId, schema))
       } catch {
         setItems([])
       }
@@ -286,12 +289,14 @@ function TableNode({
   const [cols, setCols] = useState<ColumnInfo[] | null>(null)
   const [idx, setIdx] = useState<{ name: string; detail?: string }[]>([])
   const [loading, setLoading] = useState(false)
+  const api = useApi()
+  const caps = useCaps()
 
   const qualified = kind === 'sqlite' ? table.name : `${table.schema}.${table.name}`
   const isView = /view/i.test(table.type)
 
   async function importCsv(): Promise<void> {
-    const file = await window.api.ws.openFile()
+    const file = await api.ws.openFile()
     if (!file) return
     const rows = parseCsv(file.content)
     if (rows.length < 2) {
@@ -299,7 +304,7 @@ function TableNode({
       return
     }
     const headers = rows[0]
-    const cols = await window.api.db.listColumns(connId, table.schema, table.name)
+    const cols = await api.db.listColumns(connId, table.schema, table.name)
     const names = new Set(cols.map((c) => c.name))
     const used = headers.map((h, i) => ({ h, i })).filter((x) => names.has(x.h))
     if (!used.length) {
@@ -321,7 +326,7 @@ function TableNode({
       }
     })
     try {
-      await window.api.db.execBatch(connId, statements)
+      await api.db.execBatch(connId, statements)
       window.alert(`Importadas ${statements.length} linha(s) em ${qualified}.`)
     } catch (e) {
       window.alert('Erro ao importar: ' + (e instanceof Error ? e.message : String(e)))
@@ -333,8 +338,8 @@ function TableNode({
       setLoading(true)
       try {
         const [c, i] = await Promise.all([
-          window.api.db.listColumns(connId, table.schema, table.name),
-          window.api.db.indexes(connId, table.schema, table.name).catch(() => [])
+          api.db.listColumns(connId, table.schema, table.name),
+          api.db.indexes(connId, table.schema, table.name).catch(() => [])
         ])
         setCols(c)
         setIdx(i)
@@ -375,7 +380,7 @@ function TableNode({
             title="Gerar DDL"
             onClick={async () => {
               try {
-                onInsertSql(await window.api.db.tableDdl(connId, table.schema, table.name))
+                onInsertSql(await api.db.tableDdl(connId, table.schema, table.name))
               } catch {
                 /* ignore */
               }
@@ -383,31 +388,35 @@ function TableNode({
           >
             DDL
           </button>
-          <button
-            className="link"
-            title="Gerar dados de teste (IA)"
-            onClick={async () => {
-              try {
-                const cols = await window.api.db.listColumns(connId, table.schema, table.name)
-                const colText = cols
-                  .map((c) => `${c.name} ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
-                  .join(', ')
-                const user = `Tabela: ${qualified}\nColunas: ${colText}\nGere 10 INSERTs.`
-                const reply = await window.api.ai.chat(
-                  [{ role: 'user', content: user }],
-                  seedSystem(kind ?? 'SQL')
-                )
-                onInsertSql(stripCodeFences(reply))
-              } catch {
-                /* ignore */
-              }
-            }}
-          >
-            🌱
-          </button>
-          <button className="link" title="Importar CSV" onClick={importCsv}>
-            📥
-          </button>
+          {caps.ai && (
+            <button
+              className="link"
+              title="Gerar dados de teste (IA)"
+              onClick={async () => {
+                try {
+                  const cols = await api.db.listColumns(connId, table.schema, table.name)
+                  const colText = cols
+                    .map((c) => `${c.name} ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
+                    .join(', ')
+                  const user = `Tabela: ${qualified}\nColunas: ${colText}\nGere 10 INSERTs.`
+                  const reply = await api.ai.chat(
+                    [{ role: 'user', content: user }],
+                    seedSystem(kind ?? 'SQL')
+                  )
+                  onInsertSql(stripCodeFences(reply))
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              🌱
+            </button>
+          )}
+          {caps.editableGrid && (
+            <button className="link" title="Importar CSV" onClick={importCsv}>
+              📥
+            </button>
+          )}
         </span>
       </div>
       {expanded && (
