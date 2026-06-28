@@ -35,6 +35,35 @@ Para subir o ambiente via **Docker Compose** ou **Kubernetes**, veja **[docs/DEP
 docker compose up -d && curl http://localhost:4000/health
 ```
 
+## Servidor MCP (expor o banco a agentes de IA)
+
+Há um servidor **MCP** (Model Context Protocol) **somente-leitura** que expõe um PostgreSQL a
+agentes como o Claude Code (tools: `list_tables`, `list_columns`, `query`).
+
+```bash
+npm run mcp:server   # stdio; configure as variáveis DEEPION_DB_*
+```
+
+Configuração no Claude Code (`mcpServers`), rodando a partir da pasta do projeto:
+
+```json
+{
+  "mcpServers": {
+    "deep-ion-db": {
+      "command": "npx",
+      "args": ["tsx", "src/mcp/server.ts"],
+      "env": {
+        "DEEPION_DB_HOST": "localhost",
+        "DEEPION_DB_PORT": "5432",
+        "DEEPION_DB_USER": "postgres",
+        "DEEPION_DB_PASSWORD": "...",
+        "DEEPION_DB_NAME": "app"
+      }
+    }
+  }
+}
+```
+
 ## Arquitetura
 
 ```
