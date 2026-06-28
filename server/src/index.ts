@@ -75,6 +75,7 @@ async function main(): Promise<void> {
   app.addHook('preHandler', async (req, reply) => {
     if (!req.url.startsWith('/api')) return
     if (req.url.startsWith('/api/meta/status')) return
+    if (req.url.startsWith('/api/auth/config')) return
     if (authDisabled()) {
       req.user = devUser()
       return
@@ -91,6 +92,14 @@ async function main(): Promise<void> {
       return reply.send({ error: 'token inválido' })
     }
   })
+
+  // Config pública de auth (#106): a UI usa para iniciar o login OIDC (Auth Code + PKCE).
+  // `audience` é usado como client_id no IdP. Não expõe segredos.
+  app.get('/api/auth/config', async () => ({
+    authDisabled: authDisabled(),
+    issuer: process.env.OIDC_ISSUER ?? null,
+    audience: process.env.OIDC_AUDIENCE ?? null
+  }))
 
   app.get('/api/me', async (req) => req.user ?? null)
 
