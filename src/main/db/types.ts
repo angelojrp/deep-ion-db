@@ -1,10 +1,11 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
-import type { RoleInfo, SessionInfo, SqlStatement } from '@shared/types'
+import type { HealthMetric, RoleInfo, SessionInfo, SqlStatement } from '@shared/types'
 
 export type {
   ColumnInfo,
   ConnectionConfig,
+  HealthMetric,
   HistoryEntry,
   HistoryInput,
   QueryResult,
@@ -30,4 +31,5 @@ export interface Driver {
   activeSessions(): Promise<SessionInfo[]>
   killSession(pid: string | number): Promise<void>
   listRoles(): Promise<RoleInfo[]>
+  serverHealth(): Promise<HealthMetric[]>
 }

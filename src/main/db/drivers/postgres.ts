@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
   RoleInfo,
   SchemaTable,
@@ -100,6 +101,31 @@ export class PostgresDriver implements Driver {
 
   async killSession(pid: string | number): Promise<void> {
     await this.client.query('select pg_terminate_backend($1)', [pid])
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const one = async (sql: string): Promise<string> =>
+      String((await this.client.query(sql)).rows[0]?.v ?? '-')
+    return [
+      {
+        label: 'Conexões ativas',
+        value: await one('select count(*)::int v from pg_stat_activity')
+      },
+      {
+        label: 'Tamanho do banco',
+        value: await one('select pg_size_pretty(pg_database_size(current_database())) v')
+      },
+      {
+        label: 'Cache hit %',
+        value: await one(
+          'select round(100*sum(blks_hit)/nullif(sum(blks_hit+blks_read),0),2) v from pg_stat_database'
+        )
+      },
+      {
+        label: 'Uptime',
+        value: await one("select date_trunc('second', now()-pg_postmaster_start_time())::text v")
+      }
+    ]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

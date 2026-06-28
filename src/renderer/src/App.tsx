@@ -16,6 +16,7 @@ import MarkdownView from './components/MarkdownView'
 import HistoryPanel from './components/HistoryPanel'
 import SessionsPanel from './components/SessionsPanel'
 import RolesPanel from './components/RolesPanel'
+import HealthPanel from './components/HealthPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -101,6 +102,7 @@ export default function App(): JSX.Element {
   const [showHistory, setShowHistory] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
   const [showRoles, setShowRoles] = useState(false)
+  const [showHealth, setShowHealth] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -440,6 +442,14 @@ export default function App(): JSX.Element {
               >
                 Usuários
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowHealth(true)}
+                disabled={!activeTab?.connectionId}
+                title="Saúde do servidor"
+              >
+                Saúde
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -507,6 +517,10 @@ export default function App(): JSX.Element {
           onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
           onClose={() => setShowRoles(false)}
         />
+      )}
+
+      {showHealth && activeTab?.connectionId && (
+        <HealthPanel connectionId={activeTab.connectionId} onClose={() => setShowHealth(false)} />
       )}
     </div>
   )

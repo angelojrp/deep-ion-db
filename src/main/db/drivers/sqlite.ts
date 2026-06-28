@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
   RoleInfo,
   SchemaTable,
@@ -87,6 +88,20 @@ export class SqliteDriver implements Driver {
 
   async listRoles(): Promise<RoleInfo[]> {
     return []
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const pageCount = Number(this.handle.pragma('page_count', { simple: true }))
+    const pageSize = Number(this.handle.pragma('page_size', { simple: true }))
+    const tables = (
+      this.handle.prepare("select count(*) v from sqlite_master where type='table'").get() as {
+        v: number
+      }
+    ).v
+    return [
+      { label: 'Tamanho (bytes)', value: String(pageCount * pageSize) },
+      { label: 'Tabelas', value: String(tables) }
+    ]
   }
 
   async tableDdl(_schema: string, table: string): Promise<string> {
