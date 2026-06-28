@@ -19,6 +19,9 @@ import { BaseDriver } from './base'
 
 export class MysqlDriver extends BaseDriver implements Driver {
   private _pool: mysql.Pool | null = null
+  private _activeConnectionId: number | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(private config: ConnectionConfig) {
     super(config.queryTimeoutMs)
@@ -53,17 +56,37 @@ export class MysqlDriver extends BaseDriver implements Driver {
 
   async query(sql: string): Promise<QueryResult> {
     const start = performance.now()
-    const [rows, fields] = await this.withTimeout(this.pool.query(sql), this.timeoutMs)
-    const durationMs = performance.now() - start
+    const conn = await this.pool.getConnection()
+    try {
+      const [idRows] = await conn.query('SELECT CONNECTION_ID() AS id')
+      this._activeConnectionId = (idRows as Record<string, number>[])[0].id
+      const [rows, fields] = await this.withTimeout(conn.query(sql), this.timeoutMs)
+      const durationMs = performance.now() - start
 
-    if (Array.isArray(rows)) {
-      const columns = ((fields as mysql.FieldPacket[]) ?? []).map((f) => f.name)
-      const data = rows as Record<string, unknown>[]
-      return this.normalizeQueryResult(columns, data, data.length, durationMs, 'SELECT')
+      if (Array.isArray(rows)) {
+        const columns = ((fields as mysql.FieldPacket[]) ?? []).map((f) => f.name)
+        const data = rows as Record<string, unknown>[]
+        return this.normalizeQueryResult(columns, data, data.length, durationMs, 'SELECT')
+      }
+
+      const header = rows as mysql.ResultSetHeader
+      return this.normalizeQueryResult([], [], header.affectedRows ?? 0, durationMs, 'OK')
+    } finally {
+      this._activeConnectionId = null
+      conn.release()
     }
+  }
 
-    const header = rows as mysql.ResultSetHeader
-    return this.normalizeQueryResult([], [], header.affectedRows ?? 0, durationMs, 'OK')
+  async cancel(): Promise<void> {
+    const id = this._activeConnectionId
+    if (id !== null) {
+      const conn = await this.pool.getConnection()
+      try {
+        await conn.query(`KILL QUERY ${id}`)
+      } finally {
+        conn.release()
+      }
+    }
   }
 
   async listTables(): Promise<SchemaTable[]> {

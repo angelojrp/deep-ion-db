@@ -108,7 +108,8 @@ export const httpApi: AppApi = {
     indexes: async () => [],
     routines: async () => [],
     jobs: async () => [],
-    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo web.' })
+    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo web.' }),
+    cancel: async () => {}
   },
   conn: {
     list: async () => {

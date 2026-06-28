@@ -49,4 +49,8 @@ export interface Driver {
   indexes(schema: string, table: string): Promise<IndexInfo[]>
   routines(schema: string): Promise<RoutineInfo[]>
   jobs(): Promise<JobInfo[]>
+  /** Cancela a query em execução no momento (se suportado pelo banco). */
+  cancel?(): Promise<void>
+  /** Capacidades específicas do driver. */
+  capabilities?: { cancelQuery: boolean }
 }

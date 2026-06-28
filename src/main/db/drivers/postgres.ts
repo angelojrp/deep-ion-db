@@ -19,6 +19,9 @@ import { BaseDriver } from './base'
 
 export class PostgresDriver extends BaseDriver implements Driver {
   private pool: Pool
+  private _cancelPid: number | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(config: ConnectionConfig) {
     super(config.queryTimeoutMs)
@@ -55,14 +58,28 @@ export class PostgresDriver extends BaseDriver implements Driver {
 
   async query(sql: string): Promise<QueryResult> {
     const start = performance.now()
-    const res = await this.withTimeout(this.pool.query(sql), this.timeoutMs)
-    const durationMs = performance.now() - start
-    // Múltiplos comandos retornam um array de resultados; usamos o último.
-    const result = Array.isArray(res) ? res[res.length - 1] : res
-    const columns = result.fields?.map((f: { name: string }) => f.name) ?? []
-    const rows = (result.rows as Record<string, unknown>[]) ?? []
-    const rowCount = result.rowCount ?? rows.length
-    return this.normalizeQueryResult(columns, rows, rowCount, durationMs, result.command)
+    const client = await this.pool.connect()
+    try {
+      const pidRes = await client.query('SELECT pg_backend_pid() AS pid')
+      this._cancelPid = pidRes.rows[0].pid as number
+      const res = await this.withTimeout(client.query(sql), this.timeoutMs)
+      const durationMs = performance.now() - start
+      // Múltiplos comandos retornam um array de resultados; usamos o último.
+      const result = Array.isArray(res) ? res[res.length - 1] : res
+      const columns = result.fields?.map((f: { name: string }) => f.name) ?? []
+      const rows = (result.rows as Record<string, unknown>[]) ?? []
+      const rowCount = result.rowCount ?? rows.length
+      return this.normalizeQueryResult(columns, rows, rowCount, durationMs, result.command)
+    } finally {
+      this._cancelPid = null
+      client.release()
+    }
+  }
+
+  async cancel(): Promise<void> {
+    if (this._cancelPid !== null) {
+      await this.pool.query('SELECT pg_cancel_backend($1)', [this._cancelPid])
+    }
   }
 
   async listTables(): Promise<SchemaTable[]> {

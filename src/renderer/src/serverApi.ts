@@ -122,7 +122,8 @@ export function createServerApi(opts: ServerApiOptions): AppApi {
     indexes: async () => [],
     routines: async () => [],
     jobs: async () => [],
-    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo servidor.' })
+    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo servidor.' }),
+    cancel: async () => {}
   }
 
   return {

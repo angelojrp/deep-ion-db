@@ -17,6 +17,8 @@ import { BaseDriver } from './base'
 export class SqliteDriver extends BaseDriver implements Driver {
   private db: Database.Database | null = null
 
+  readonly capabilities = { cancelQuery: false }
+
   constructor(private config: ConnectionConfig) {
     super(config.queryTimeoutMs)
   }
@@ -81,6 +83,10 @@ export class SqliteDriver extends BaseDriver implements Driver {
       for (const s of items) this.handle.prepare(s.sql).run(...(s.params as never[]))
     })
     tx(statements)
+  }
+
+  async cancel(): Promise<void> {
+    // SQLite é síncrono — nada a cancelar
   }
 
   async killSession(): Promise<void> {

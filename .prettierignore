@@ -5,3 +5,4 @@ web/public/app.js
 web/public/app.css
 package-lock.json
 *.md
+.claude/worktrees
