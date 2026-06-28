@@ -67,6 +67,13 @@ export interface SqlStatement {
   params: unknown[]
 }
 
+/** Usuário/role do servidor de banco. */
+export interface RoleInfo {
+  name: string
+  canLogin?: boolean
+  isSuper?: boolean
+}
+
 /** Sessão/atividade ativa no servidor de banco. */
 export interface SessionInfo {
   pid: string | number
@@ -89,6 +96,7 @@ export interface DbApi {
   tableDdl(id: string, schema: string, table: string): Promise<string>
   activeSessions(id: string): Promise<SessionInfo[]>
   killSession(id: string, pid: string | number): Promise<void>
+  listRoles(id: string): Promise<RoleInfo[]>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

@@ -3,6 +3,7 @@ import type {
   ConnectionConfig,
   Driver,
   QueryResult,
+  RoleInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -87,5 +88,9 @@ export class DbManager {
 
   killSession(id: string, pid: string | number): Promise<void> {
     return this.get(id).killSession(pid)
+  }
+
+  listRoles(id: string): Promise<RoleInfo[]> {
+    return this.get(id).listRoles()
   }
 }

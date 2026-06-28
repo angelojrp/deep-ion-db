@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   Driver,
   QueryResult,
+  RoleInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -82,6 +83,10 @@ export class SqliteDriver implements Driver {
 
   async killSession(): Promise<void> {
     throw new Error('SQLite (arquivo local) não possui sessões.')
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    return []
   }
 
   async tableDdl(_schema: string, table: string): Promise<string> {
