@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { JobInfo } from '@shared/types'
+import { useApi } from '../api'
 
 interface Props {
   connectionId: string
@@ -10,16 +11,17 @@ export default function JobsPanel({ connectionId, onClose }: Props): JSX.Element
   const [jobs, setJobs] = useState<JobInfo[]>([])
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const api = useApi()
 
   const load = useCallback(() => {
     setLoading(true)
     setErr(null)
-    window.api.db
+    api.db
       .jobs(connectionId)
       .then(setJobs)
       .catch((e) => setErr(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
-  }, [connectionId])
+  }, [api, connectionId])
 
   useEffect(() => {
     load()

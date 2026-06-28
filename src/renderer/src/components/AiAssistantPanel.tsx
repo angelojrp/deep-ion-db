@@ -10,6 +10,7 @@ import {
   schemaDocsSystem,
   stripCodeFences
 } from '@ai/features'
+import { useApi } from '../api'
 
 interface Props {
   connectionId: string | null
@@ -43,20 +44,21 @@ export default function AiAssistantPanel({
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const api = useApi()
 
   useEffect(() => {
     if (!connectionId) return
-    window.api.db
+    api.db
       .listTables(connectionId)
       .then((t) => setSchemaText(schemaContext(t)))
       .catch(() => {})
-  }, [connectionId])
+  }, [api, connectionId])
 
   async function run(system: string, messages: AiChatMessage[], asSql: boolean): Promise<void> {
     setBusy(true)
     setErr(null)
     try {
-      const reply = await window.api.ai.chat(messages, system)
+      const reply = await api.ai.chat(messages, system)
       setTurns((t) => [
         ...t,
         { role: 'assistant', text: asSql ? stripCodeFences(reply) : reply, isSql: asSql }
@@ -103,16 +105,13 @@ export default function AiAssistantPanel({
       const prefix = kind === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN '
       let plan = '(plano indisponível)'
       try {
-        const res = await window.api.db.query(connectionId, prefix + currentSql)
+        const res = await api.db.query(connectionId, prefix + currentSql)
         plan = JSON.stringify(res.rows).slice(0, 4000)
       } catch {
         /* segue sem plano */
       }
       const user = `Schema:\n${schemaText}\n\nQuery:\n${currentSql}\n\nPlano (EXPLAIN):\n${plan}`
-      const reply = await window.api.ai.chat(
-        [{ role: 'user', content: user }],
-        optimizeSqlSystem(dialect)
-      )
+      const reply = await api.ai.chat([{ role: 'user', content: user }], optimizeSqlSystem(dialect))
       setTurns((t) => [...t, { role: 'assistant', text: reply }])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -127,8 +126,8 @@ export default function AiAssistantPanel({
     setErr(null)
     try {
       const [health, sessions] = await Promise.all([
-        window.api.db.serverHealth(connectionId),
-        window.api.db.activeSessions(connectionId)
+        api.db.serverHealth(connectionId),
+        api.db.activeSessions(connectionId)
       ])
       const user =
         `Métricas de saúde:\n${health.map((m) => `${m.label}: ${m.value}`).join('\n')}\n\n` +
@@ -137,10 +136,7 @@ export default function AiAssistantPanel({
           .slice(0, 20)
           .map((s) => `pid=${s.pid} estado=${s.state ?? '-'} dur=${s.durationMs ?? '-'}ms`)
           .join('\n')
-      const reply = await window.api.ai.chat(
-        [{ role: 'user', content: user }],
-        diagnoseSystem(dialect)
-      )
+      const reply = await api.ai.chat([{ role: 'user', content: user }], diagnoseSystem(dialect))
       onOpenDoc('diagnostico-ia.md', reply)
       onClose()
     } catch (e) {
@@ -155,18 +151,15 @@ export default function AiAssistantPanel({
     setBusy(true)
     setErr(null)
     try {
-      const tables = await window.api.db.listTables(connectionId)
+      const tables = await api.db.listTables(connectionId)
       const lines: string[] = []
       for (const t of tables.slice(0, 15)) {
-        const cols = await window.api.db.listColumns(connectionId, t.schema, t.name)
+        const cols = await api.db.listColumns(connectionId, t.schema, t.name)
         const qualified = t.schema && t.schema !== 'main' ? `${t.schema}.${t.name}` : t.name
         lines.push(`${qualified}: ${cols.map((c) => `${c.name} ${c.dataType}`).join(', ')}`)
       }
       const user = `Schema (${dialect}):\n${lines.join('\n')}`
-      const reply = await window.api.ai.chat(
-        [{ role: 'user', content: user }],
-        schemaDocsSystem(dialect)
-      )
+      const reply = await api.ai.chat([{ role: 'user', content: user }], schemaDocsSystem(dialect))
       onOpenDoc('schema.md', reply)
       onClose()
     } catch (e) {

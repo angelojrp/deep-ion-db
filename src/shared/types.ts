@@ -228,3 +228,39 @@ export interface AppApi {
   hist: HistApi
   ai: AiApi
 }
+
+/**
+ * Capacidades do ambiente em que a UI roda (arquitetura unificada desktop/web).
+ * A mesma UI é renderizada nos dois; cada recurso é mostrado/ocultado por capability.
+ * Desktop (Electron) e web (HTTP) injetam conjuntos diferentes.
+ */
+export interface Capabilities {
+  /** Criar/editar conexões ad-hoc (host/usuário/senha). Desktop: sim; web: não. */
+  adHocConnections: boolean
+  /** Lista de conexões vem gerenciada do servidor (data sources). Web: sim. */
+  managedDataSources: boolean
+  /** Pasta de projeto local com arquivos .sql/.md (workspace). Desktop: sim. */
+  workspaceFiles: boolean
+  /** Backup do banco (pg_dump/mysqldump/cópia). Desktop: sim. */
+  backup: boolean
+  /** Sessões ativas no servidor. */
+  sessions: boolean
+  /** Usuários/roles do servidor. */
+  roles: boolean
+  /** Dashboard de saúde do servidor. */
+  health: boolean
+  /** Jobs agendados. */
+  jobs: boolean
+  /** Diagrama ER (engenharia reversa por FKs). */
+  erDiagram: boolean
+  /** Comparação (diff) de schemas entre conexões. */
+  schemaDiff: boolean
+  /** Edição inline de dados na grade (CRUD). */
+  editableGrid: boolean
+  /** Histórico de execução de queries. */
+  history: boolean
+  /** Integração com IA (assistente, NL→SQL, etc.). */
+  ai: boolean
+  /** Exportar resultados para arquivo (salvar como). */
+  exportResults: boolean
+}
