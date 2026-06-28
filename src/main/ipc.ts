@@ -1,5 +1,6 @@
-import { ipcMain } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import { DbManager } from './db/manager'
+import { runBackup } from './backup'
 import { ConnectionStore } from './connectionStore'
 import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
@@ -45,6 +46,20 @@ export function registerDbIpc(): void {
   )
   ipcMain.handle('db:routines', (_e, id: string, schema: string) => manager.routines(id, schema))
   ipcMain.handle('db:jobs', (_e, id: string) => manager.jobs(id))
+  ipcMain.handle('db:backup', async (_e, id: string) => {
+    const config = manager.getConfig(id)
+    if (!config) return { ok: false, error: 'Conexão não encontrada.' }
+    const def =
+      config.kind === 'sqlite' ? `${config.name}.db` : `${config.database ?? config.name}.sql`
+    const res = await dialog.showSaveDialog({ title: 'Salvar backup', defaultPath: def })
+    if (res.canceled || !res.filePath) return { ok: false }
+    try {
+      await runBackup(config, res.filePath)
+      return { ok: true, path: res.filePath }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

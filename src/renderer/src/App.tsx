@@ -527,6 +527,20 @@ export default function App(): JSX.Element {
               </button>
               <button
                 className="ghost-btn"
+                onClick={async () => {
+                  const cid = activeTab?.connectionId
+                  if (!cid) return
+                  const r = await window.api.db.backup(cid)
+                  if (r.ok) window.alert(`Backup salvo em ${r.path}`)
+                  else if (r.error) window.alert('Backup falhou: ' + r.error)
+                }}
+                disabled={!activeTab?.connectionId}
+                title="Backup do banco (pg_dump/mysqldump/cópia)"
+              >
+                Backup
+              </button>
+              <button
+                className="ghost-btn"
                 onClick={() => setShowAssistant(true)}
                 title="Assistente IA (NL→SQL, explicar, chat)"
               >

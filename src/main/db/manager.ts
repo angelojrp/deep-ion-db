@@ -20,6 +20,11 @@ import { SqliteDriver } from './drivers/sqlite'
 /** Mantém as conexões abertas e roteia as operações para o driver certo. */
 export class DbManager {
   private drivers = new Map<string, Driver>()
+  private configs = new Map<string, ConnectionConfig>()
+
+  getConfig(id: string): ConnectionConfig | undefined {
+    return this.configs.get(id)
+  }
 
   private create(config: ConnectionConfig): Driver {
     switch (config.kind) {
@@ -41,6 +46,7 @@ export class DbManager {
     const driver = this.create(config)
     await driver.connect()
     this.drivers.set(config.id, driver)
+    this.configs.set(config.id, config)
     return { id: config.id }
   }
 
@@ -49,6 +55,7 @@ export class DbManager {
     if (driver) {
       await driver.disconnect()
       this.drivers.delete(id)
+      this.configs.delete(id)
     }
   }
 
