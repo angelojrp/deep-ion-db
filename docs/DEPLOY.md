@@ -58,6 +58,11 @@ Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASS
 Pré-requisitos: um cluster (Docker Desktop, kind, minikube ou gerenciado) e `kubectl`.
 Manifests em [`deploy/k8s/`](../deploy/k8s).
 
+> **Imagem publicada (Docker Hub).** O workflow `.github/workflows/dockerhub.yml` publica
+> `<DOCKERHUB_USERNAME>/deep-ion-db-server` (multi-arch amd64/arm64) a cada tag `v*`, desde que os
+> secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN` estejam configurados. Aí o compose/k8s podem usar a
+> imagem publicada em vez de buildar localmente.
+
 ### 1. Publique a imagem do server
 
 ```bash
