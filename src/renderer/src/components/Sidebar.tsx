@@ -34,7 +34,8 @@ const DEFAULT_PORT: Record<DbKind, string> = {
   postgres: '5432',
   mysql: '3306',
   sqlite: '',
-  mssql: '1433'
+  mssql: '1433',
+  oracle: '1521'
 }
 
 export default function Sidebar({
@@ -135,6 +136,7 @@ export default function Sidebar({
               <option value="mysql">MySQL / MariaDB</option>
               <option value="sqlite">SQLite</option>
               <option value="mssql">SQL Server</option>
+              <option value="oracle">Oracle</option>
             </select>
           </label>
 

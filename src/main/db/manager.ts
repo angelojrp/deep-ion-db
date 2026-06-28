@@ -17,6 +17,7 @@ import { PostgresDriver } from './drivers/postgres'
 import { MysqlDriver } from './drivers/mysql'
 import { SqliteDriver } from './drivers/sqlite'
 import { MssqlDriver } from './drivers/mssql'
+import { OracleDriver } from './drivers/oracle'
 
 /** Mantém as conexões abertas e roteia as operações para o driver certo. */
 export class DbManager {
@@ -37,6 +38,8 @@ export class DbManager {
         return new SqliteDriver(config)
       case 'mssql':
         return new MssqlDriver(config)
+      case 'oracle':
+        return new OracleDriver(config)
       default:
         throw new Error(`Tipo de banco não suportado: ${(config as ConnectionConfig).kind}`)
     }
