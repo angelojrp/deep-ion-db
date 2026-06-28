@@ -14,6 +14,12 @@ export interface ConnectionConfig {
   /** Caminho do arquivo para SQLite. */
   filePath?: string
   ssl?: boolean
+  /**
+   * Controla `rejectUnauthorized` na conexão TLS com Postgres.
+   * Padrão: `true` (seguro). Setar como `false` apenas em ambientes de desenvolvimento/teste,
+   * pois desabilita a verificação do certificado do servidor.
+   */
+  sslRejectUnauthorized?: boolean
 }
 
 export interface QueryResult {

@@ -3,7 +3,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import fastifyStatic from '@fastify/static'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
-import type { ConnectionConfig } from '../../src/shared/types'
+import type { ConnectionConfig, QueryResult } from '../../src/shared/types'
 import { metaConfigured, metaStatus, migrate } from './meta'
 import {
   createDataSource,
@@ -355,7 +355,21 @@ async function main(): Promise<void> {
       try {
         await driver.connect()
         await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
-        const result = capRows(await driver.query(req.body.sql))
+        let result: QueryResult & { truncated?: boolean }
+        if (mode === 'read') {
+          // Garante somente leitura em nível de banco, impedindo bypass via CTEs com DML.
+          await driver.query('BEGIN')
+          try {
+            await driver.query('SET TRANSACTION READ ONLY')
+            result = capRows(await driver.query(req.body.sql))
+            await driver.query('COMMIT')
+          } catch (e) {
+            await driver.query('ROLLBACK').catch(() => {})
+            throw e
+          }
+        } else {
+          result = capRows(await driver.query(req.body.sql))
+        }
         await audit(user.id, req.params.id, 'query', {
           rowCount: result.rowCount,
           readonly: mode === 'read',

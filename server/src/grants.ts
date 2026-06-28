@@ -90,7 +90,20 @@ export async function getGrantMode(userId: string, dataSourceId: string): Promis
   return row.mode as string
 }
 
-/** Heurística simples: a query é somente-leitura? (SELECT/WITH/EXPLAIN/SHOW) */
+/**
+ * Verifica se a SQL é segura para execução no modo somente leitura.
+ * Retorna `false` (bloqueando) se:
+ *  - não iniciar com SELECT/WITH/EXPLAIN/SHOW, ou
+ *  - contiver múltiplos statements (prevenção de bypass por CTEs com DML).
+ *
+ * Nota: a camada de execução deve complementar com `SET TRANSACTION READ ONLY`
+ * para garantia em nível de banco de dados.
+ */
 export function isReadOnlySql(sql: string): boolean {
-  return /^\s*(select|with|explain|show)\b/i.test(sql.trim())
+  const trimmed = sql.trim()
+  if (!/^(select|with|explain|show)\b/i.test(trimmed)) return false
+  // Rejeita multi-statements (ex.: SELECT 1; DROP TABLE users)
+  const withoutTrailingSemicolon = trimmed.replace(/;\s*$/, '')
+  if (/;\s*\S/.test(withoutTrailingSemicolon)) return false
+  return true
 }
