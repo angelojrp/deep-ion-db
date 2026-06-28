@@ -30,6 +30,10 @@ export function registerDbIpc(): void {
   ipcMain.handle('db:tableDdl', (_e, id: string, schema: string, table: string) =>
     manager.tableDdl(id, schema, table)
   )
+  ipcMain.handle('db:activeSessions', (_e, id: string) => manager.activeSessions(id))
+  ipcMain.handle('db:killSession', (_e, id: string, pid: string | number) =>
+    manager.killSession(id, pid)
+  )
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

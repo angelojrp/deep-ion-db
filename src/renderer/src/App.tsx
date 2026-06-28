@@ -14,6 +14,7 @@ import ResultsGrid, { type EditContext } from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
 import HistoryPanel from './components/HistoryPanel'
+import SessionsPanel from './components/SessionsPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -97,6 +98,7 @@ export default function App(): JSX.Element {
   const [tabs, setTabs] = useState<EditorTab[]>(() => [createTab('Query 1')])
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
   const [showHistory, setShowHistory] = useState(false)
+  const [showSessions, setShowSessions] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -420,6 +422,14 @@ export default function App(): JSX.Element {
               >
                 🕘 Histórico
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowSessions(true)}
+                disabled={!activeTab?.connectionId}
+                title="Sessões ativas no servidor"
+              >
+                Sessões
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -471,6 +481,13 @@ export default function App(): JSX.Element {
         <HistoryPanel
           onClose={() => setShowHistory(false)}
           onPick={(sql) => updateActiveTab({ content: sql, dirty: true })}
+        />
+      )}
+
+      {showSessions && activeTab?.connectionId && (
+        <SessionsPanel
+          connectionId={activeTab.connectionId}
+          onClose={() => setShowSessions(false)}
         />
       )}
     </div>

@@ -701,6 +701,19 @@ tr.row-new {
   color: var(--error);
 }
 
+.muted {
+  color: var(--text-dim);
+}
+
+.sess-query {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+}
+
 /* Workspace panel */
 .ws-panel {
   display: flex;

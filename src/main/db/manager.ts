@@ -4,6 +4,7 @@ import type {
   Driver,
   QueryResult,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from './types'
 import { PostgresDriver } from './drivers/postgres'
@@ -78,5 +79,13 @@ export class DbManager {
 
   tableDdl(id: string, schema: string, table: string): Promise<string> {
     return this.get(id).tableDdl(schema, table)
+  }
+
+  activeSessions(id: string): Promise<SessionInfo[]> {
+    return this.get(id).activeSessions()
+  }
+
+  killSession(id: string, pid: string | number): Promise<void> {
+    return this.get(id).killSession(pid)
   }
 }

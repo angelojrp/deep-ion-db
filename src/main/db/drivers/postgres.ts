@@ -5,6 +5,7 @@ import type {
   Driver,
   QueryResult,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -76,6 +77,28 @@ export class PostgresDriver implements Driver {
       await this.client.query('ROLLBACK')
       throw e
     }
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    const res = await this.client.query(
+      `select pid, usename as "user", datname as database, state, query,
+              extract(epoch from (now() - query_start)) * 1000 as "durationMs"
+         from pg_stat_activity
+        where pid <> pg_backend_pid()
+        order by query_start nulls last`
+    )
+    return res.rows.map((r) => ({
+      pid: r.pid,
+      user: r.user ?? null,
+      database: r.database ?? null,
+      state: r.state ?? null,
+      query: r.query ?? null,
+      durationMs: r.durationMs != null ? Math.round(Number(r.durationMs)) : null
+    }))
+  }
+
+  async killSession(pid: string | number): Promise<void> {
+    await this.client.query('select pg_terminate_backend($1)', [pid])
   }
 
   async tableDdl(schema: string, table: string): Promise<string> {

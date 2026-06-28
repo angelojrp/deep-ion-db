@@ -67,6 +67,16 @@ export interface SqlStatement {
   params: unknown[]
 }
 
+/** Sessão/atividade ativa no servidor de banco. */
+export interface SessionInfo {
+  pid: string | number
+  user: string | null
+  database: string | null
+  state: string | null
+  query: string | null
+  durationMs: number | null
+}
+
 /** Superfície exposta ao renderer via contextBridge. */
 export interface DbApi {
   connect(config: ConnectionConfig): Promise<{ id: string }>
@@ -77,6 +87,8 @@ export interface DbApi {
   primaryKeys(id: string, schema: string, table: string): Promise<string[]>
   execBatch(id: string, statements: SqlStatement[]): Promise<void>
   tableDdl(id: string, schema: string, table: string): Promise<string>
+  activeSessions(id: string): Promise<SessionInfo[]>
+  killSession(id: string, pid: string | number): Promise<void>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */
