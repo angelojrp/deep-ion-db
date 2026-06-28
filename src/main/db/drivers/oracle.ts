@@ -15,12 +15,15 @@ import type {
   SqlStatement
 } from '../types'
 
+import { BaseDriver } from './base'
+
 /** Driver Oracle via node-oracledb em thin mode (JS puro, sem Instant Client). */
-export class OracleDriver implements Driver {
+export class OracleDriver extends BaseDriver implements Driver {
   private pool: oracledb.Pool | null = null
   private readonly config: ConnectionConfig
 
   constructor(config: ConnectionConfig) {
+    super()
     this.config = config
     oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
     oracledb.fetchAsString = [oracledb.CLOB]
@@ -71,21 +74,10 @@ export class OracleDriver implements Driver {
       const durationMs = performance.now() - start
       if (res.rows) {
         const columns = (res.metaData ?? []).map((m) => m.name)
-        return {
-          columns,
-          rows: res.rows as Record<string, unknown>[],
-          rowCount: res.rows.length,
-          durationMs,
-          command: 'SELECT'
-        }
+        const rows = res.rows as Record<string, unknown>[]
+        return this.normalizeQueryResult(columns, rows, rows.length, durationMs, 'SELECT')
       }
-      return {
-        columns: [],
-        rows: [],
-        rowCount: res.rowsAffected ?? 0,
-        durationMs,
-        command: 'OK'
-      }
+      return this.normalizeQueryResult([], [], res.rowsAffected ?? 0, durationMs, 'OK')
     } finally {
       await conn.close()
     }

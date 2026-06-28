@@ -15,10 +15,13 @@ import type {
   SqlStatement
 } from '../types'
 
-export class PostgresDriver implements Driver {
+import { BaseDriver } from './base'
+
+export class PostgresDriver extends BaseDriver implements Driver {
   private client: Client
 
   constructor(config: ConnectionConfig) {
+    super()
     this.client = new Client({
       host: config.host,
       port: config.port ?? 5432,
@@ -53,13 +56,10 @@ export class PostgresDriver implements Driver {
     const durationMs = performance.now() - start
     // Múltiplos comandos retornam um array de resultados; usamos o último.
     const result = Array.isArray(res) ? res[res.length - 1] : res
-    return {
-      columns: result.fields?.map((f: { name: string }) => f.name) ?? [],
-      rows: (result.rows as Record<string, unknown>[]) ?? [],
-      rowCount: result.rowCount ?? result.rows?.length ?? 0,
-      durationMs,
-      command: result.command
-    }
+    const columns = result.fields?.map((f: { name: string }) => f.name) ?? []
+    const rows = (result.rows as Record<string, unknown>[]) ?? []
+    const rowCount = result.rowCount ?? rows.length
+    return this.normalizeQueryResult(columns, rows, rowCount, durationMs, result.command)
   }
 
   async listTables(): Promise<SchemaTable[]> {
