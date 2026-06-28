@@ -5,7 +5,12 @@ import rateLimit from '@fastify/rate-limit'
 import helmet from '@fastify/helmet'
 import fastifyStatic from '@fastify/static'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
+import { MysqlDriver } from '../../src/main/db/drivers/mysql'
+import { SqliteDriver } from '../../src/main/db/drivers/sqlite'
+import { MssqlDriver } from '../../src/main/db/drivers/mssql'
+import { OracleDriver } from '../../src/main/db/drivers/oracle'
 import type { ConnectionConfig, QueryResult } from '../../src/shared/types'
+import type { Driver } from '../../src/main/db/types'
 import { metaConfigured, metaStatus, migrate } from './meta'
 import {
   createDataSource,
@@ -64,6 +69,21 @@ function makeDriver(input: PgConnInput): PostgresDriver {
   return new PostgresDriver({ id: 'web', name: 'web', kind: 'postgres', ...input })
 }
 
+function makeDriverFromConfig(config: ConnectionConfig): Driver {
+  switch (config.kind) {
+    case 'mysql':
+      return new MysqlDriver(config)
+    case 'sqlite':
+      return new SqliteDriver(config)
+    case 'mssql':
+      return new MssqlDriver(config)
+    case 'oracle':
+      return new OracleDriver(config)
+    default:
+      return new PostgresDriver(config)
+  }
+}
+
 async function withDriver<T>(
   input: PgConnInput,
   fn: (d: PostgresDriver) => Promise<T>
@@ -96,8 +116,23 @@ async function main(): Promise<void> {
     timeWindow: '1 minute'
   })
 
-  // Helmet: headers de segurança
-  await app.register(helmet)
+  // Helmet: headers de segurança com CSP permitindo Monaco CDN e workers
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+        scriptSrcElem: ["'self'", 'https://cdn.jsdelivr.net'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+        fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
+        workerSrc: ["'self'", 'blob:'],
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"]
+      }
+    }
+  })
 
   app.get('/health', async () => ({
     ok: true,
@@ -404,13 +439,16 @@ async function main(): Promise<void> {
         reply.code(429)
         return { error: `limite de ${MAX_SESSIONS_PER_USER} execuções simultâneas atingido` }
       }
-      const driver = new PostgresDriver(ds.config)
+      const driver = makeDriverFromConfig(ds.config)
       try {
         await driver.connect()
-        await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
+        // statement_timeout é específico do PostgreSQL
+        if (ds.config.kind === 'postgres') {
+          await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
+        }
         let result: QueryResult & { truncated?: boolean }
-        if (mode === 'read') {
-          // Garante somente leitura em nível de banco, impedindo bypass via CTEs com DML.
+        if (mode === 'read' && ds.config.kind === 'postgres') {
+          // Garante somente leitura em nível de transação (PostgreSQL)
           await driver.query('BEGIN')
           try {
             await driver.query('SET TRANSACTION READ ONLY')
@@ -454,7 +492,7 @@ async function main(): Promise<void> {
       reply.code(404)
       return { error: 'data source não encontrado' }
     }
-    const driver = new PostgresDriver(config)
+    const driver = makeDriverFromConfig(config)
     try {
       await driver.connect()
       const tables = await driver.listTables()
@@ -479,7 +517,7 @@ async function main(): Promise<void> {
         reply.code(404)
         return { error: 'data source não encontrado' }
       }
-      const driver = new PostgresDriver(config)
+      const driver = makeDriverFromConfig(config)
       try {
         await driver.connect()
         return { columns: await driver.listColumns(req.body.schema, req.body.table) }
@@ -533,7 +571,7 @@ async function main(): Promise<void> {
       reply.code(404)
       return { ok: false, error: 'data source não encontrado.' }
     }
-    const driver = new PostgresDriver(config)
+    const driver = makeDriverFromConfig(config)
     try {
       await driver.connect()
       await driver.query('select 1')
