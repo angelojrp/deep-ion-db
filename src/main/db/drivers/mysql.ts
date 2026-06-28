@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
   RoleInfo,
   SchemaTable,
@@ -117,6 +118,25 @@ export class MysqlDriver implements Driver {
 
   async killSession(pid: string | number): Promise<void> {
     await this.connection.query(`KILL ${Number(pid)}`)
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const status = async (name: string): Promise<string> => {
+      const [r] = await this.connection.query(`show global status like '${name}'`)
+      return String((r as Record<string, string>[])[0]?.Value ?? '-')
+    }
+    const [sz] = await this.connection.query(
+      'select coalesce(sum(data_length+index_length),0) v from information_schema.tables where table_schema = database()'
+    )
+    return [
+      { label: 'Conexões', value: await status('Threads_connected') },
+      { label: 'Uptime (s)', value: await status('Uptime') },
+      { label: 'Queries', value: await status('Queries') },
+      {
+        label: 'Tamanho do banco (bytes)',
+        value: String((sz as Record<string, unknown>[])[0]?.v ?? '-')
+      }
+    ]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

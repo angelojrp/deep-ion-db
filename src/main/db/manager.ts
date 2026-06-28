@@ -2,6 +2,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
   RoleInfo,
   SchemaTable,
@@ -92,5 +93,9 @@ export class DbManager {
 
   listRoles(id: string): Promise<RoleInfo[]> {
     return this.get(id).listRoles()
+  }
+
+  serverHealth(id: string): Promise<HealthMetric[]> {
+    return this.get(id).serverHealth()
   }
 }
