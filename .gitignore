@@ -13,3 +13,6 @@ dist/
 # Segredos de deploy
 .env
 deploy/k8s/secret.yaml
+
+# Frontend web (build)
+web/public/app.js
