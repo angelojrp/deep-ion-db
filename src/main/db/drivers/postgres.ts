@@ -1,4 +1,4 @@
-import { Client } from 'pg'
+import { Pool } from 'pg'
 import type {
   ColumnInfo,
   ConnectionConfig,
@@ -15,45 +15,75 @@ import type {
   SqlStatement
 } from '../types'
 
-export class PostgresDriver implements Driver {
-  private client: Client
+import { BaseDriver } from './base'
+
+export class PostgresDriver extends BaseDriver implements Driver {
+  private pool: Pool
+  private _cancelPid: number | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(config: ConnectionConfig) {
-    this.client = new Client({
+    super(config.queryTimeoutMs)
+    this.pool = new Pool({
       host: config.host,
       port: config.port ?? 5432,
       user: config.user,
       password: config.password,
       database: config.database,
-      ssl: config.ssl ? { rejectUnauthorized: false } : undefined
+      max: 3,
+      ssl: config.ssl
+        ? (() => {
+            const rejectUnauthorized = config.sslRejectUnauthorized ?? true
+            if (!rejectUnauthorized) {
+              console.warn(
+                '[postgres] sslRejectUnauthorized=false: verificação de certificado TLS desabilitada. Use apenas em desenvolvimento/teste.'
+              )
+            }
+            return { rejectUnauthorized }
+          })()
+        : undefined
     })
   }
 
   async connect(): Promise<void> {
-    await this.client.connect()
+    // Testa conectividade obtendo uma conexão do pool e devolvendo imediatamente.
+    const client = await this.pool.connect()
+    client.release()
   }
 
   async disconnect(): Promise<void> {
-    await this.client.end()
+    await this.pool.end()
   }
 
   async query(sql: string): Promise<QueryResult> {
     const start = performance.now()
-    const res = await this.client.query(sql)
-    const durationMs = performance.now() - start
-    // Múltiplos comandos retornam um array de resultados; usamos o último.
-    const result = Array.isArray(res) ? res[res.length - 1] : res
-    return {
-      columns: result.fields?.map((f: { name: string }) => f.name) ?? [],
-      rows: (result.rows as Record<string, unknown>[]) ?? [],
-      rowCount: result.rowCount ?? result.rows?.length ?? 0,
-      durationMs,
-      command: result.command
+    const client = await this.pool.connect()
+    try {
+      const pidRes = await client.query('SELECT pg_backend_pid() AS pid')
+      this._cancelPid = pidRes.rows[0].pid as number
+      const res = await this.withTimeout(client.query(sql), this.timeoutMs)
+      const durationMs = performance.now() - start
+      // Múltiplos comandos retornam um array de resultados; usamos o último.
+      const result = Array.isArray(res) ? res[res.length - 1] : res
+      const columns = result.fields?.map((f: { name: string }) => f.name) ?? []
+      const rows = (result.rows as Record<string, unknown>[]) ?? []
+      const rowCount = result.rowCount ?? rows.length
+      return this.normalizeQueryResult(columns, rows, rowCount, durationMs, result.command)
+    } finally {
+      this._cancelPid = null
+      client.release()
+    }
+  }
+
+  async cancel(): Promise<void> {
+    if (this._cancelPid !== null) {
+      await this.pool.query('SELECT pg_cancel_backend($1)', [this._cancelPid])
     }
   }
 
   async listTables(): Promise<SchemaTable[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select table_schema as schema, table_name as name, table_type as type
          from information_schema.tables
         where table_schema not in ('pg_catalog', 'information_schema')
@@ -63,7 +93,7 @@ export class PostgresDriver implements Driver {
   }
 
   async primaryKeys(schema: string, table: string): Promise<string[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select a.attname as name
          from pg_index i
          join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
@@ -75,18 +105,21 @@ export class PostgresDriver implements Driver {
   }
 
   async execBatch(statements: SqlStatement[]): Promise<void> {
+    const client = await this.pool.connect()
     try {
-      await this.client.query('BEGIN')
-      for (const s of statements) await this.client.query(s.sql, s.params)
-      await this.client.query('COMMIT')
+      await client.query('BEGIN')
+      for (const s of statements) await client.query(s.sql, s.params)
+      await client.query('COMMIT')
     } catch (e) {
-      await this.client.query('ROLLBACK')
+      await client.query('ROLLBACK')
       throw e
+    } finally {
+      client.release()
     }
   }
 
   async activeSessions(): Promise<SessionInfo[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select pid, usename as "user", datname as database, state, query,
               extract(epoch from (now() - query_start)) * 1000 as "durationMs"
          from pg_stat_activity
@@ -104,12 +137,12 @@ export class PostgresDriver implements Driver {
   }
 
   async killSession(pid: string | number): Promise<void> {
-    await this.client.query('select pg_terminate_backend($1)', [pid])
+    await this.pool.query('select pg_terminate_backend($1)', [pid])
   }
 
   async serverHealth(): Promise<HealthMetric[]> {
     const one = async (sql: string): Promise<string> =>
-      String((await this.client.query(sql)).rows[0]?.v ?? '-')
+      String((await this.pool.query(sql)).rows[0]?.v ?? '-')
     return [
       {
         label: 'Conexões ativas',
@@ -133,7 +166,7 @@ export class PostgresDriver implements Driver {
   }
 
   async foreignKeys(): Promise<ForeignKey[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select tc.table_name as "table", kcu.column_name as "column",
               ccu.table_name as "refTable", ccu.column_name as "refColumn"
          from information_schema.table_constraints tc
@@ -149,7 +182,7 @@ export class PostgresDriver implements Driver {
 
   async jobs(): Promise<JobInfo[]> {
     try {
-      const res = await this.client.query(
+      const res = await this.pool.query(
         `select jobname as name, schedule, command, active as enabled from cron.job order by jobname`
       )
       return res.rows as JobInfo[]
@@ -159,7 +192,7 @@ export class PostgresDriver implements Driver {
   }
 
   async indexes(schema: string, table: string): Promise<IndexInfo[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select indexname as name, indexdef as detail from pg_indexes where schemaname = $1 and tablename = $2`,
       [schema, table]
     )
@@ -167,7 +200,7 @@ export class PostgresDriver implements Driver {
   }
 
   async routines(schema: string): Promise<RoutineInfo[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select routine_name as name, routine_type as type from information_schema.routines
         where specific_schema = $1 order by routine_name`,
       [schema]
@@ -176,7 +209,7 @@ export class PostgresDriver implements Driver {
   }
 
   async listRoles(): Promise<RoleInfo[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select rolname as name, rolcanlogin as "canLogin", rolsuper as "isSuper"
          from pg_roles order by rolname`
     )
@@ -196,7 +229,7 @@ export class PostgresDriver implements Driver {
   }
 
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {
-    const res = await this.client.query(
+    const res = await this.pool.query(
       `select column_name as name, data_type as "dataType", is_nullable as nullable
          from information_schema.columns
         where table_schema = $1 and table_name = $2

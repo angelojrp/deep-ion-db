@@ -15,12 +15,18 @@ import type {
   SqlStatement
 } from '../types'
 
+import { BaseDriver } from './base'
+
 /** Driver Oracle via node-oracledb em thin mode (JS puro, sem Instant Client). */
-export class OracleDriver implements Driver {
+export class OracleDriver extends BaseDriver implements Driver {
   private pool: oracledb.Pool | null = null
   private readonly config: ConnectionConfig
+  private _activeConn: oracledb.Connection | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(config: ConnectionConfig) {
+    super(config.queryTimeoutMs)
     this.config = config
     oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT
     oracledb.fetchAsString = [oracledb.CLOB]
@@ -66,28 +72,28 @@ export class OracleDriver implements Driver {
   async query(text: string): Promise<QueryResult> {
     const start = performance.now()
     const conn = await this.get().getConnection()
+    this._activeConn = conn
     try {
-      const res = await conn.execute(text, [], { autoCommit: true })
+      const res = await this.withTimeout(
+        conn.execute(text, [], { autoCommit: true }),
+        this.timeoutMs
+      )
       const durationMs = performance.now() - start
       if (res.rows) {
         const columns = (res.metaData ?? []).map((m) => m.name)
-        return {
-          columns,
-          rows: res.rows as Record<string, unknown>[],
-          rowCount: res.rows.length,
-          durationMs,
-          command: 'SELECT'
-        }
+        const rows = res.rows as Record<string, unknown>[]
+        return this.normalizeQueryResult(columns, rows, rows.length, durationMs, 'SELECT')
       }
-      return {
-        columns: [],
-        rows: [],
-        rowCount: res.rowsAffected ?? 0,
-        durationMs,
-        command: 'OK'
-      }
+      return this.normalizeQueryResult([], [], res.rowsAffected ?? 0, durationMs, 'OK')
     } finally {
+      this._activeConn = null
       await conn.close()
+    }
+  }
+
+  async cancel(): Promise<void> {
+    if (this._activeConn) {
+      await this._activeConn.break()
     }
   }
 

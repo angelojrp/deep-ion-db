@@ -1,30 +1,20 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { PostgresDriver } from '../main/db/drivers/postgres'
-import type { ConnectionConfig } from '../main/db/types'
+import type { Driver } from '../main/db/types'
 
 /**
- * Servidor MCP (issue #30) — expõe um PostgreSQL como tools para agentes de IA
- * (Claude Code, etc.), em modo SOMENTE LEITURA. Reaproveita o PostgresDriver.
- *
- * Config por variáveis de ambiente:
- *   DEEPION_DB_HOST, DEEPION_DB_PORT, DEEPION_DB_USER, DEEPION_DB_PASSWORD, DEEPION_DB_NAME
+ * Servidor MCP (issue #30 / #146) — expõe qualquer banco suportado como tools
+ * para agentes de IA (Claude Code, etc.), em modo SOMENTE LEITURA.
+ * O driver é injetado de fora (dependency injection); sem acoplamento ao PostgreSQL.
  */
 
-const READONLY = /^\s*(select|with|explain|show)\b/i
-
-function configFromEnv(): ConnectionConfig {
-  return {
-    id: 'mcp',
-    name: 'mcp',
-    kind: 'postgres',
-    host: process.env.DEEPION_DB_HOST ?? '127.0.0.1',
-    port: Number(process.env.DEEPION_DB_PORT ?? 5432),
-    user: process.env.DEEPION_DB_USER,
-    password: process.env.DEEPION_DB_PASSWORD,
-    database: process.env.DEEPION_DB_NAME
-  }
+/**
+ * Rejeita SQL com múltiplos statements (ex.: SELECT 1; DROP TABLE users).
+ * Remove o ponto-e-vírgula final (opcional) antes de verificar.
+ */
+function hasMultipleStatements(sql: string): boolean {
+  const withoutTrailingSemicolon = sql.trimEnd().replace(/;\s*$/, '')
+  return /;\s*\S/.test(withoutTrailingSemicolon)
 }
 
 function text(value: unknown): { content: { type: 'text'; text: string }[] } {
@@ -33,10 +23,8 @@ function text(value: unknown): { content: { type: 'text'; text: string }[] } {
   }
 }
 
-async function main(): Promise<void> {
-  const driver = new PostgresDriver(configFromEnv())
-  await driver.connect()
-
+/** Cria um McpServer pronto para conectar a um transport, usando o driver fornecido. */
+export function createMcpServer(driver: Driver): McpServer {
   const server = new McpServer({ name: 'deep-ion-db', version: '0.1.0' })
 
   server.tool('list_tables', 'Lista tabelas e views do banco.', {}, async () =>
@@ -52,12 +40,17 @@ async function main(): Promise<void> {
 
   server.tool(
     'query',
-    'Executa uma consulta SOMENTE LEITURA (SELECT/WITH/EXPLAIN/SHOW) e retorna até 200 linhas.',
+    'Executa uma consulta SOMENTE LEITURA e retorna até 200 linhas. Multi-statements são proibidos.',
     { sql: z.string() },
     async ({ sql }) => {
-      if (!READONLY.test(sql)) {
+      if (hasMultipleStatements(sql)) {
         return {
-          content: [{ type: 'text', text: 'Permitido apenas SELECT/WITH/EXPLAIN/SHOW.' }],
+          content: [
+            {
+              type: 'text',
+              text: 'Multi-statements são proibidos no modo somente leitura. Envie um único statement por vez.'
+            }
+          ],
           isError: true
         }
       }
@@ -66,10 +59,5 @@ async function main(): Promise<void> {
     }
   )
 
-  await server.connect(new StdioServerTransport())
+  return server
 }
-
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})

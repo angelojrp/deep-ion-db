@@ -14,6 +14,14 @@ export interface ConnectionConfig {
   /** Caminho do arquivo para SQLite. */
   filePath?: string
   ssl?: boolean
+  /**
+   * Controla `rejectUnauthorized` na conexão TLS com Postgres.
+   * Padrão: `true` (seguro). Setar como `false` apenas em ambientes de desenvolvimento/teste,
+   * pois desabilita a verificação do certificado do servidor.
+   */
+  sslRejectUnauthorized?: boolean
+  /** Timeout de execução de query em milissegundos (padrão: 30 000). */
+  queryTimeoutMs?: number
 }
 
 export interface QueryResult {
@@ -27,6 +35,10 @@ export interface QueryResult {
   durationMs: number
   /** Comando executado, quando disponível (ex.: SELECT, INSERT, OK). */
   command?: string
+  /** Indica que o resultado foi truncado ao teto de linhas configurado. */
+  truncated?: boolean
+  /** Total de linhas antes do truncamento (apenas quando truncated = true). */
+  totalRows?: number
 }
 
 export interface SchemaTable {
@@ -134,6 +146,7 @@ export interface DbApi {
   routines(id: string, schema: string): Promise<RoutineInfo[]>
   jobs(id: string): Promise<JobInfo[]>
   backup(id: string): Promise<{ ok: boolean; path?: string; error?: string }>
+  cancel(id: string): Promise<void>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */
@@ -194,13 +207,19 @@ export interface HistApi {
 }
 
 /** Integração com IA (épico #3). */
-export type AIProviderKind = 'anthropic' | 'openai'
+export type AIProviderKind = 'anthropic' | 'openai' | 'gemini' | 'local'
 
 export interface AIPublicConfig {
   kind: AIProviderKind
   model: string
   baseUrl?: string
   hasKey: boolean
+  /** Enviar schema/DDL como contexto para a IA (padrão: true). */
+  sendSchema: boolean
+  /** Enviar plano de EXPLAIN como contexto para a IA (padrão: true). */
+  sendExplain: boolean
+  /** Usuário aceitou o aviso de privacidade antes de enviar dados a um provedor cloud. */
+  consentGiven: boolean
 }
 
 export interface AiSettingsInput {
@@ -208,6 +227,10 @@ export interface AiSettingsInput {
   model?: string
   baseUrl?: string
   apiKey?: string
+  /** Controla envio de schema/DDL. */
+  sendSchema?: boolean
+  /** Controla envio de plano EXPLAIN. */
+  sendExplain?: boolean
 }
 
 export interface AiChatMessage {
@@ -219,6 +242,25 @@ export interface AiApi {
   getConfig(): Promise<AIPublicConfig | null>
   setConfig(input: AiSettingsInput): Promise<AIPublicConfig>
   chat(messages: AiChatMessage[], system?: string): Promise<string>
+  /** Registra o aceite do aviso de privacidade para o provedor cloud atual. */
+  setConsent(): Promise<AIPublicConfig>
+  /** Inicia streaming; tokens chegam via `onToken`. */
+  stream(messages: AiChatMessage[], system?: string): Promise<void>
+  /** Cancela o streaming em andamento. */
+  cancelStream(): Promise<void>
+  /** Registra callback para tokens recebidos; retorna função de limpeza. */
+  onToken(cb: (token: string) => void): () => void
+  /** Registra callback de conclusão do streaming; retorna função de limpeza. */
+  onStreamDone(cb: () => void): () => void
+  /** Registra callback de erro do streaming; retorna função de limpeza. */
+  onStreamError(cb: (msg: string) => void): () => void
+}
+
+/** API do servidor MCP embutido (issue #146). */
+export interface McpApi {
+  start(connectionId: string): Promise<{ port: number }>
+  stop(): Promise<void>
+  status(): Promise<{ running: boolean; port?: number; kind?: DbKind; connectionId?: string }>
 }
 
 export interface AppApi {
@@ -227,6 +269,7 @@ export interface AppApi {
   ws: WsApi
   hist: HistApi
   ai: AiApi
+  mcp: McpApi
 }
 
 /**

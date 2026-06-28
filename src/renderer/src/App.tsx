@@ -6,16 +6,7 @@ import {
   useRef,
   useState
 } from 'react'
-import type {
-  AppApi,
-  ConnectionConfig,
-  ConnectionSummary,
-  QueryResult,
-  SavedConnection,
-  SchemaTable,
-  Workspace,
-  WsEntry
-} from '@shared/types'
+import type { AppApi, ConnectionSummary, WsEntry } from '@shared/types'
 import Sidebar from './components/Sidebar'
 import SqlEditor, { type SqlEditorApi } from './components/SqlEditor'
 import ResultsGrid, { type EditContext } from './components/ResultsGrid'
@@ -32,22 +23,9 @@ import FeedbackModal from './components/FeedbackModal'
 import JobsPanel from './components/JobsPanel'
 import { setActiveSchema, setCompletionApi } from './sqlCompletion'
 import { useApi, useCaps } from './api'
-
-type TabKind = 'sql' | 'markdown'
-
-interface EditorTab {
-  id: string
-  title: string
-  kind: TabKind
-  filePath: string | null
-  connectionId: string | null
-  content: string
-  result: QueryResult | null
-  error: string | null
-  running: boolean
-  dirty: boolean
-  editCtx: EditContext | null
-}
+import { useTabs, baseName, kindFromName, createTab } from './hooks/useTabs'
+import { useConnections } from './hooks/useConnections'
+import type { SchemaTable, Workspace } from '@shared/types'
 
 /** Detecta uma tabela única em um SELECT simples (sem JOIN) para edição na grade. */
 function parseTable(sql: string): { schema?: string; table: string } | null {
@@ -58,31 +36,6 @@ function parseTable(sql: string): { schema?: string; table: string } | null {
   if (!m) return null
   const unq = (x: string): string => x.replace(/"/g, '')
   return m[2] ? { schema: unq(m[1]), table: unq(m[2]) } : { table: unq(m[1]) }
-}
-
-function baseName(p: string): string {
-  const parts = p.split(/[\\/]/)
-  return parts[parts.length - 1] || p
-}
-
-function kindFromName(name: string): TabKind {
-  return /\.(md|markdown)$/i.test(name) ? 'markdown' : 'sql'
-}
-
-function createTab(title: string, kind: TabKind = 'sql'): EditorTab {
-  return {
-    id: crypto.randomUUID(),
-    title,
-    kind,
-    filePath: null,
-    connectionId: null,
-    content: kind === 'sql' ? 'SELECT 1 AS hello;' : '# Notas\n',
-    result: null,
-    error: null,
-    running: false,
-    dirty: false,
-    editCtx: null
-  }
 }
 
 /** Monta o contexto de edição (tabela + PK) se a query for editável; senão null. */
@@ -109,11 +62,7 @@ async function computeEditCtx(
 }
 
 export default function App(): JSX.Element {
-  const [connections, setConnections] = useState<ConnectionSummary[]>([])
-  const [saved, setSaved] = useState<SavedConnection[]>([])
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
-  const [tabs, setTabs] = useState<EditorTab[]>(() => [createTab('Query 1')])
-  const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
   const [showHistory, setShowHistory] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
   const [showRoles, setShowRoles] = useState(false)
@@ -133,12 +82,36 @@ export default function App(): JSX.Element {
   }, [theme])
   const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
-  const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
   const editorApi = useRef<SqlEditorApi | null>(null)
   const schemaCache = useRef(new Map<string, SchemaTable[]>())
   const api = useApi()
   const caps = useCaps()
+
+  const {
+    tabs,
+    setTabs,
+    activeTabId,
+    setActiveTabId,
+    activeTab,
+    updateTab,
+    updateActiveTab,
+    newTab,
+    closeTab,
+    openDoc,
+    clearConnection
+  } = useTabs()
+
+  const {
+    connections,
+    saved,
+    refreshSaved,
+    handleConnect,
+    handleConnectSaved,
+    handleDeleteSaved,
+    handleDisconnect
+  } = useConnections({ updateActiveTab, clearConnection })
+
+  const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
 
   // Injeta a API no autocomplete (desktop: window.api; web: cliente HTTP).
   useEffect(() => {
@@ -169,10 +142,6 @@ export default function App(): JSX.Element {
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }
-
-  const refreshSaved = useCallback(async () => {
-    setSaved(await api.conn.list())
-  }, [api])
 
   useEffect(() => {
     refreshSaved().catch(() => {})
@@ -208,83 +177,6 @@ export default function App(): JSX.Element {
       cancelled = true
     }
   }, [api, tabConnId, tabKind])
-
-  const updateTab = useCallback((id: string, patch: Partial<EditorTab>) => {
-    setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
-  }, [])
-
-  const updateActiveTab = useCallback(
-    (patch: Partial<EditorTab>) => {
-      if (activeTabId) updateTab(activeTabId, patch)
-    },
-    [activeTabId, updateTab]
-  )
-
-  const newTab = useCallback(() => {
-    setTabs((prev) => {
-      const tab = createTab(`Query ${prev.length + 1}`)
-      tab.connectionId = activeTab?.connectionId ?? null
-      setActiveTabId(tab.id)
-      return [...prev, tab]
-    })
-  }, [activeTab])
-
-  const closeTab = useCallback(
-    (id: string) => {
-      setTabs((prev) => {
-        const next = prev.filter((t) => t.id !== id)
-        const ensured = next.length ? next : [createTab('Query 1')]
-        if (id === activeTabId) setActiveTabId(ensured[ensured.length - 1].id)
-        return ensured
-      })
-    },
-    [activeTabId]
-  )
-
-  const targetNewConnection = useCallback(
-    (c: ConnectionSummary) => {
-      setConnections((prev) => [...prev.filter((x) => x.id !== c.id), c])
-      updateActiveTab({ connectionId: c.id })
-    },
-    [updateActiveTab]
-  )
-
-  const handleConnect = useCallback(
-    async (config: ConnectionConfig, persist: boolean) => {
-      await api.db.connect(config)
-      if (persist) {
-        await api.conn.save(config)
-        await refreshSaved()
-      }
-      targetNewConnection({ id: config.id, name: config.name, kind: config.kind })
-    },
-    [api, refreshSaved, targetNewConnection]
-  )
-
-  const handleConnectSaved = useCallback(
-    async (s: SavedConnection) => {
-      await api.conn.connect(s.id)
-      targetNewConnection({ id: s.id, name: s.name, kind: s.kind })
-    },
-    [api, targetNewConnection]
-  )
-
-  const handleDeleteSaved = useCallback(
-    async (id: string) => {
-      await api.conn.remove(id)
-      await refreshSaved()
-    },
-    [api, refreshSaved]
-  )
-
-  const handleDisconnect = useCallback(
-    async (id: string) => {
-      await api.db.disconnect(id)
-      setConnections((prev) => prev.filter((c) => c.id !== id))
-      setTabs((prev) => prev.map((t) => (t.connectionId === id ? { ...t, connectionId: null } : t)))
-    },
-    [api]
-  )
 
   const runQuery = useCallback(async () => {
     if (!activeTab) return
@@ -368,7 +260,7 @@ export default function App(): JSX.Element {
         return
       }
       const content = await api.ws.read(entry.path)
-      const tab: EditorTab = {
+      const tab = {
         ...createTab(entry.name, kindFromName(entry.name)),
         filePath: entry.path,
         content,
@@ -378,7 +270,7 @@ export default function App(): JSX.Element {
       setTabs((prev) => [...prev, tab])
       setActiveTabId(tab.id)
     },
-    [api, tabs, activeTab]
+    [api, tabs, activeTab, setTabs, setActiveTabId]
   )
 
   const saveActive = useCallback(async () => {
@@ -414,21 +306,13 @@ export default function App(): JSX.Element {
       setTabs((prev) => prev.filter((t) => t.filePath !== entry.path))
       await refreshWorkspace()
     },
-    [api, refreshWorkspace]
+    [api, refreshWorkspace, setTabs]
   )
 
   const onContentChange = useCallback(
     (content: string) => updateActiveTab({ content, dirty: true }),
     [updateActiveTab]
   )
-
-  const openDoc = useCallback((title: string, content: string) => {
-    setTabs((prev) => {
-      const tab = { ...createTab(title, 'markdown'), content }
-      setActiveTabId(tab.id)
-      return [...prev, tab]
-    })
-  }, [])
 
   const generateEr = useCallback(async () => {
     const cid = activeTab?.connectionId
@@ -500,6 +384,23 @@ export default function App(): JSX.Element {
               >
                 {activeTab?.running ? 'Executando…' : '▶ Executar'}
               </button>
+              {activeTab?.running && (
+                <button
+                  className="stop-btn"
+                  onClick={() => {
+                    const cid = activeTab.connectionId
+                    if (cid) void api.db.cancel(cid)
+                  }}
+                  disabled={activeConn?.kind === 'sqlite'}
+                  title={
+                    activeConn?.kind === 'sqlite'
+                      ? 'SQLite não suporta cancelamento de query'
+                      : 'Cancelar query em execução'
+                  }
+                >
+                  ◼ Stop
+                </button>
+              )}
               <button
                 className="ghost-btn"
                 onClick={explainQuery}

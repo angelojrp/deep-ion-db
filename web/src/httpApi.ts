@@ -108,7 +108,8 @@ export const httpApi: AppApi = {
     indexes: async () => [],
     routines: async () => [],
     jobs: async () => [],
-    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo web.' })
+    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo web.' }),
+    cancel: async () => {}
   },
   conn: {
     list: async () => {
@@ -166,6 +167,18 @@ export const httpApi: AppApi = {
   ai: {
     getConfig: async () => null,
     setConfig: async () => unsupported('configuração de IA'),
-    chat: async () => unsupported('IA')
+    setConsent: async () => unsupported('configuração de IA'),
+    chat: async () => unsupported('IA'),
+    stream: async () => unsupported('IA streaming'),
+    cancelStream: async () => {},
+    onToken: () => () => {},
+    onStreamDone: () => () => {},
+    onStreamError: () => () => {}
+  },
+  // MCP não disponível no modo web (servidor remoto); stub que retorna parado.
+  mcp: {
+    start: async () => unsupported('MCP'),
+    stop: async () => {},
+    status: async () => ({ running: false as const })
   }
 }

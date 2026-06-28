@@ -15,11 +15,17 @@ import type {
   SqlStatement
 } from '../types'
 
+import { BaseDriver } from './base'
+
 /** Driver SQL Server (Microsoft) via mssql/tedious (JS puro, sem build nativo). */
-export class MssqlDriver implements Driver {
+export class MssqlDriver extends BaseDriver implements Driver {
   private pool: sql.ConnectionPool
+  private _activeRequest: sql.Request | null = null
+
+  readonly capabilities = { cancelQuery: true }
 
   constructor(config: ConnectionConfig) {
+    super(config.queryTimeoutMs)
     this.pool = new sql.ConnectionPool({
       server: config.host ?? 'localhost',
       port: config.port ?? 1433,
@@ -40,28 +46,32 @@ export class MssqlDriver implements Driver {
 
   async query(text: string): Promise<QueryResult> {
     const start = performance.now()
-    const res = await this.pool.request().query(text)
-    const durationMs = performance.now() - start
-    const recordset = res.recordset as
-      (Record<string, unknown>[] & { columns?: Record<string, { index: number }> }) | undefined
-    if (recordset) {
-      const colsMeta = recordset.columns ?? {}
-      const columns = Object.keys(colsMeta).sort((a, b) => colsMeta[a].index - colsMeta[b].index)
-      return {
-        columns,
-        rows: Array.from(recordset),
-        rowCount: recordset.length,
-        durationMs,
-        command: 'SELECT'
+    const request = this.pool.request()
+    this._activeRequest = request
+    try {
+      const res = await this.withTimeout(request.query(text), this.timeoutMs)
+      const durationMs = performance.now() - start
+      const recordset = res.recordset as
+        (Record<string, unknown>[] & { columns?: Record<string, { index: number }> }) | undefined
+      if (recordset) {
+        const colsMeta = recordset.columns ?? {}
+        const columns = Object.keys(colsMeta).sort((a, b) => colsMeta[a].index - colsMeta[b].index)
+        return this.normalizeQueryResult(
+          columns,
+          Array.from(recordset),
+          recordset.length,
+          durationMs,
+          'SELECT'
+        )
       }
+      return this.normalizeQueryResult([], [], res.rowsAffected?.[0] ?? 0, durationMs, 'OK')
+    } finally {
+      this._activeRequest = null
     }
-    return {
-      columns: [],
-      rows: [],
-      rowCount: res.rowsAffected?.[0] ?? 0,
-      durationMs,
-      command: 'OK'
-    }
+  }
+
+  async cancel(): Promise<void> {
+    this._activeRequest?.cancel()
   }
 
   private async params(

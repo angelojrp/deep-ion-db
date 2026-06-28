@@ -6,19 +6,22 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
-  JobInfo,
   QueryResult,
-  RoleInfo,
   RoutineInfo,
   SchemaTable,
-  SessionInfo,
   SqlStatement
 } from '../types'
 
-export class SqliteDriver implements Driver {
+import { BaseDriver } from './base'
+
+export class SqliteDriver extends BaseDriver implements Driver {
   private db: Database.Database | null = null
 
-  constructor(private config: ConnectionConfig) {}
+  readonly capabilities = { cancelQuery: false }
+
+  constructor(private config: ConnectionConfig) {
+    super(config.queryTimeoutMs)
+  }
 
   async connect(): Promise<void> {
     if (!this.config.filePath) {
@@ -38,29 +41,29 @@ export class SqliteDriver implements Driver {
   }
 
   async query(sql: string): Promise<QueryResult> {
-    const start = performance.now()
-    const stmt = this.handle.prepare(sql)
+    // SQLite é síncrono; Promise.race aplica deadline mesmo que não cancele a thread.
+    return this.withTimeout(
+      Promise.resolve().then(() => {
+        const start = performance.now()
+        const stmt = this.handle.prepare(sql)
 
-    if (stmt.reader) {
-      const rows = stmt.all() as Record<string, unknown>[]
-      const columns = stmt.columns().map((c) => c.name)
-      return {
-        columns,
-        rows,
-        rowCount: rows.length,
-        durationMs: performance.now() - start,
-        command: 'SELECT'
-      }
-    }
+        if (stmt.reader) {
+          const rows = stmt.all() as Record<string, unknown>[]
+          const columns = stmt.columns().map((c) => c.name)
+          return this.normalizeQueryResult(
+            columns,
+            rows,
+            rows.length,
+            performance.now() - start,
+            'SELECT'
+          )
+        }
 
-    const info = stmt.run()
-    return {
-      columns: [],
-      rows: [],
-      rowCount: info.changes,
-      durationMs: performance.now() - start,
-      command: 'OK'
-    }
+        const info = stmt.run()
+        return this.normalizeQueryResult([], [], info.changes, performance.now() - start, 'OK')
+      }),
+      this.timeoutMs
+    )
   }
 
   async primaryKeys(_schema: string, table: string): Promise<string[]> {
@@ -82,8 +85,8 @@ export class SqliteDriver implements Driver {
     tx(statements)
   }
 
-  async activeSessions(): Promise<SessionInfo[]> {
-    return []
+  async cancel(): Promise<void> {
+    // SQLite é síncrono — nada a cancelar
   }
 
   async killSession(): Promise<void> {
@@ -100,14 +103,6 @@ export class SqliteDriver implements Driver {
   }
 
   async routines(): Promise<RoutineInfo[]> {
-    return []
-  }
-
-  async jobs(): Promise<JobInfo[]> {
-    return []
-  }
-
-  async listRoles(): Promise<RoleInfo[]> {
     return []
   }
 
@@ -132,7 +127,7 @@ export class SqliteDriver implements Driver {
     return fks
   }
 
-  async serverHealth(): Promise<HealthMetric[]> {
+  override async serverHealth(): Promise<HealthMetric[]> {
     const pageCount = Number(this.handle.pragma('page_count', { simple: true }))
     const pageSize = Number(this.handle.pragma('page_size', { simple: true }))
     const tables = (

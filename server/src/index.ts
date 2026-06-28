@@ -1,9 +1,11 @@
 import { join } from 'path'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
+import helmet from '@fastify/helmet'
 import fastifyStatic from '@fastify/static'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
-import type { ConnectionConfig } from '../../src/shared/types'
+import type { ConnectionConfig, QueryResult } from '../../src/shared/types'
 import { metaConfigured, metaStatus, migrate } from './meta'
 import {
   createDataSource,
@@ -16,7 +18,14 @@ import {
   type DataSourceUpdateInput
 } from './dataSources'
 import { vaultUsingDefaultKey } from './vault'
-import { type AuthUser, authDisabled, devUser, upsertUser, verifyToken } from './auth'
+import {
+  type AuthUser,
+  assertOidcConfigured,
+  authDisabled,
+  devUser,
+  upsertUser,
+  verifyToken
+} from './auth'
 import {
   createGrant,
   deleteGrant,
@@ -69,8 +78,26 @@ async function withDriver<T>(
 }
 
 async function main(): Promise<void> {
+  // Fail-closed: aborta se OIDC não estiver configurado corretamente em produção
+  assertOidcConfigured()
+
   const app = Fastify({ logger: true })
-  await app.register(cors, { origin: true })
+
+  // CORS restrito: lê CORS_ORIGINS do env (vírgula-separado) ou usa localhost em dev
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',').map((s) => s.trim()) ?? [
+    'http://localhost:4000'
+  ]
+  await app.register(cors, { origin: corsOrigins })
+
+  // Rate limiting global: 200 req/min por IP
+  await app.register(rateLimit, {
+    global: true,
+    max: 200,
+    timeWindow: '1 minute'
+  })
+
+  // Helmet: headers de segurança
+  await app.register(helmet)
 
   app.get('/health', async () => ({
     ok: true,
@@ -106,6 +133,22 @@ async function main(): Promise<void> {
     issuer: process.env.OIDC_ISSUER ?? null,
     audience: process.env.OIDC_AUDIENCE ?? null
   }))
+
+  // Rota de auth com rate-limit restrito (20 req/min): previne força-bruta em endpoints de token.
+  app.post(
+    '/api/auth/token',
+    {
+      config: {
+        rateLimit: { max: 20, timeWindow: '1 minute' }
+      }
+    },
+    async (_req, reply) => {
+      // Troca de tokens gerenciada pelo provedor OIDC externo (Keycloak).
+      // Este endpoint reservado garante rate-limiting restrito caso seja implementado.
+      reply.code(501)
+      return { error: 'não implementado: use o fluxo Auth Code + PKCE com o provedor OIDC.' }
+    }
+  )
 
   app.get('/api/me', async (req) => req.user ?? null)
 
@@ -165,7 +208,17 @@ async function main(): Promise<void> {
   })
 
   // ----- Data sources gerenciados (#59) — credenciais no cofre (#62) -----
-  app.get('/api/data-sources', async () => ({ dataSources: await listDataSources() }))
+  app.get('/api/data-sources', async (req) => {
+    const user = req.user!
+    const all = await listDataSources()
+    if (user.role === 'admin') return { dataSources: all }
+    // Usuários não-admin veem apenas data sources com grants ativos para eles
+    const grants = await listGrants(user.id)
+    const grantedIds = new Set(
+      grants.filter((g) => !g.suspended && !g.expired).map((g) => g.data_source_id)
+    )
+    return { dataSources: all.filter((ds) => grantedIds.has(ds.id)) }
+  })
 
   app.post<{ Body: DataSourceInput }>('/api/data-sources', async (req, reply) => {
     if (req.user?.role !== 'admin') {
@@ -355,7 +408,21 @@ async function main(): Promise<void> {
       try {
         await driver.connect()
         await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
-        const result = capRows(await driver.query(req.body.sql))
+        let result: QueryResult & { truncated?: boolean }
+        if (mode === 'read') {
+          // Garante somente leitura em nível de banco, impedindo bypass via CTEs com DML.
+          await driver.query('BEGIN')
+          try {
+            await driver.query('SET TRANSACTION READ ONLY')
+            result = capRows(await driver.query(req.body.sql))
+            await driver.query('COMMIT')
+          } catch (e) {
+            await driver.query('ROLLBACK').catch(() => {})
+            throw e
+          }
+        } else {
+          result = capRows(await driver.query(req.body.sql))
+        }
         await audit(user.id, req.params.id, 'query', {
           rowCount: result.rowCount,
           readonly: mode === 'read',
@@ -452,6 +519,15 @@ async function main(): Promise<void> {
   })
 
   app.post<{ Params: { id: string } }>('/api/data-sources/:id/test', async (req, reply) => {
+    const user = req.user!
+    // Requer papel admin ou grant ativo sobre o data source
+    if (user.role !== 'admin') {
+      const grant = await getGrantMode(user.id, req.params.id)
+      if (!grant) {
+        reply.code(403)
+        return { ok: false, error: 'requer papel admin ou concessão sobre este data source' }
+      }
+    }
     const config = await getDataSourceConfig(req.params.id)
     if (!config) {
       reply.code(404)

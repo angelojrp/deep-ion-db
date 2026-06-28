@@ -5,7 +5,17 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypt
  * com AES-256-GCM. A chave vem de META_ENCRYPTION_KEY (defina em produção!).
  */
 
-const keyMaterial = process.env.META_ENCRYPTION_KEY ?? 'dev-insecure-key-change-me'
+const DEFAULT_KEY = 'dev-insecure-key-change-me'
+const keyMaterial = process.env.META_ENCRYPTION_KEY ?? DEFAULT_KEY
+
+if (!process.env.META_ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
+  console.error(
+    '[vault] FATAL: META_ENCRYPTION_KEY não definida em produção. ' +
+      'Defina a variável de ambiente antes de iniciar o servidor.'
+  )
+  process.exit(1)
+}
+
 const key = scryptSync(keyMaterial, 'deepion-vault', 32)
 
 export function vaultUsingDefaultKey(): boolean {

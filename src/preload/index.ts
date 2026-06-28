@@ -33,7 +33,8 @@ const api: AppApi = {
       ipcRenderer.invoke('db:indexes', id, schema, table),
     routines: (id: string, schema: string) => ipcRenderer.invoke('db:routines', id, schema),
     jobs: (id: string) => ipcRenderer.invoke('db:jobs', id),
-    backup: (id: string) => ipcRenderer.invoke('db:backup', id)
+    backup: (id: string) => ipcRenderer.invoke('db:backup', id),
+    cancel: (id: string) => ipcRenderer.invoke('db:cancel', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),
@@ -63,8 +64,32 @@ const api: AppApi = {
   ai: {
     getConfig: () => ipcRenderer.invoke('ai:getConfig'),
     setConfig: (input: AiSettingsInput) => ipcRenderer.invoke('ai:setConfig', input),
+    setConsent: () => ipcRenderer.invoke('ai:setConsent'),
     chat: (messages: AiChatMessage[], system?: string) =>
-      ipcRenderer.invoke('ai:chat', messages, system)
+      ipcRenderer.invoke('ai:chat', messages, system),
+    stream: (messages: AiChatMessage[], system?: string) =>
+      ipcRenderer.invoke('ai:stream', messages, system),
+    cancelStream: () => ipcRenderer.invoke('ai:cancelStream'),
+    onToken: (cb: (token: string) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, token: string): void => cb(token)
+      ipcRenderer.on('ai:token', handler)
+      return () => ipcRenderer.removeListener('ai:token', handler)
+    },
+    onStreamDone: (cb: () => void) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('ai:done', handler)
+      return () => ipcRenderer.removeListener('ai:done', handler)
+    },
+    onStreamError: (cb: (msg: string) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, msg: string): void => cb(msg)
+      ipcRenderer.on('ai:error', handler)
+      return () => ipcRenderer.removeListener('ai:error', handler)
+    }
+  },
+  mcp: {
+    start: (connectionId: string) => ipcRenderer.invoke('mcp:start', connectionId),
+    stop: () => ipcRenderer.invoke('mcp:stop'),
+    status: () => ipcRenderer.invoke('mcp:status')
   }
 }
 

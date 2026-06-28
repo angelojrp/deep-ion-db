@@ -70,6 +70,11 @@ export class DbManager {
     this.drivers.clear()
   }
 
+  /** Retorna o driver ativo para uma conexão, ou undefined se não existir. */
+  getDriver(id: string): Driver | undefined {
+    return this.drivers.get(id)
+  }
+
   private get(id: string): Driver {
     const driver = this.drivers.get(id)
     if (!driver) throw new Error('Conexão não encontrada ou já fechada.')
@@ -130,5 +135,12 @@ export class DbManager {
 
   jobs(id: string): Promise<JobInfo[]> {
     return this.get(id).jobs()
+  }
+
+  async cancel(id: string): Promise<void> {
+    const driver = this.drivers.get(id)
+    if (driver?.cancel) {
+      await driver.cancel()
+    }
   }
 }

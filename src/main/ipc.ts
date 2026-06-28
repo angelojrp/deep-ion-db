@@ -6,7 +6,10 @@ import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
 import * as ai from './aiSettings'
 import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
-import type { AiChatMessage, AiSettingsInput } from '@shared/types'
+import { startMcpForConnection, stopMcp, getMcpStatus } from '../mcp/manager'
+import type { AiChatMessage, AiSettingsInput, QueryResult } from '@shared/types'
+
+const ROW_LIMIT = 10_000
 
 const manager = new DbManager()
 const store = new ConnectionStore()
@@ -20,7 +23,20 @@ export function registerDbIpc(): void {
 
   ipcMain.handle('db:connect', (_e, config: ConnectionConfig) => manager.connect(config))
   ipcMain.handle('db:disconnect', (_e, id: string) => manager.disconnect(id))
-  ipcMain.handle('db:query', (_e, id: string, sql: string) => manager.query(id, sql))
+  ipcMain.handle('db:query', async (_e, id: string, sql: string): Promise<QueryResult> => {
+    const result = await manager.query(id, sql)
+    if (result.rows.length > ROW_LIMIT) {
+      const totalRows = result.rows.length
+      return {
+        ...result,
+        rows: result.rows.slice(0, ROW_LIMIT),
+        rowCount: ROW_LIMIT,
+        truncated: true,
+        totalRows
+      }
+    }
+    return result
+  })
   ipcMain.handle('db:listTables', (_e, id: string) => manager.listTables(id))
   ipcMain.handle('db:listColumns', (_e, id: string, schema: string, table: string) =>
     manager.listColumns(id, schema, table)
@@ -46,6 +62,7 @@ export function registerDbIpc(): void {
   )
   ipcMain.handle('db:routines', (_e, id: string, schema: string) => manager.routines(id, schema))
   ipcMain.handle('db:jobs', (_e, id: string) => manager.jobs(id))
+  ipcMain.handle('db:cancel', (_e, id: string) => manager.cancel(id))
   ipcMain.handle('db:backup', async (_e, id: string) => {
     const config = manager.getConfig(id)
     if (!config) return { ok: false, error: 'Conexão não encontrada.' }
@@ -87,9 +104,30 @@ export function registerDbIpc(): void {
   // Integração com IA (config + chat). A chave fica só no main.
   ipcMain.handle('ai:getConfig', () => ai.getPublicConfig())
   ipcMain.handle('ai:setConfig', (_e, input: AiSettingsInput) => ai.setConfig(input))
+  ipcMain.handle('ai:setConsent', () => ai.setConsent())
   ipcMain.handle('ai:chat', (_e, messages: AiChatMessage[], system?: string) =>
     ai.chat(messages, system)
   )
+
+  // Streaming incremental (issue #143).
+  ipcMain.handle('ai:stream', async (event, messages: AiChatMessage[], system?: string) => {
+    try {
+      await ai.chatStream(
+        messages,
+        (token) => {
+          if (!event.sender.isDestroyed()) event.sender.send('ai:token', token)
+        },
+        system
+      )
+      if (!event.sender.isDestroyed()) event.sender.send('ai:done')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!event.sender.isDestroyed()) event.sender.send('ai:error', msg)
+    }
+  })
+  ipcMain.handle('ai:cancelStream', () => {
+    ai.cancelStream()
+  })
 
   // Histórico de queries.
   ipcMain.handle('hist:list', () => history.list())
@@ -97,8 +135,16 @@ export function registerDbIpc(): void {
   ipcMain.handle('hist:toggleFavorite', (_e, id: string) => history.toggleFavorite(id))
   ipcMain.handle('hist:remove', (_e, id: string) => history.remove(id))
   ipcMain.handle('hist:clear', () => history.clear())
+
+  // MCP (issue #146): servidor HTTP para integração com agentes de IA.
+  ipcMain.handle('mcp:start', (_e, connectionId: string) =>
+    startMcpForConnection(connectionId, manager)
+  )
+  ipcMain.handle('mcp:stop', () => stopMcp())
+  ipcMain.handle('mcp:status', () => getMcpStatus())
 }
 
-export function shutdownDb(): Promise<void> {
+export async function shutdownDb(): Promise<void> {
+  await stopMcp().catch(() => {})
   return manager.disconnectAll()
 }

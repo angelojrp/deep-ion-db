@@ -122,7 +122,8 @@ export function createServerApi(opts: ServerApiOptions): AppApi {
     indexes: async () => [],
     routines: async () => [],
     jobs: async () => [],
-    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo servidor.' })
+    backup: async () => ({ ok: false, error: 'Backup não está disponível no modo servidor.' }),
+    cancel: async () => {}
   }
 
   return {
@@ -164,7 +165,15 @@ export function createServerApi(opts: ServerApiOptions): AppApi {
     ai: {
       getConfig: async () => null,
       setConfig: async () => unsupported('configuração de IA'),
-      chat: async () => unsupported('IA')
-    }
+      setConsent: async () => unsupported('configuração de IA'),
+      chat: async () => unsupported('IA'),
+      stream: async () => unsupported('IA streaming'),
+      cancelStream: async () => {},
+      onToken: () => () => {},
+      onStreamDone: () => () => {},
+      onStreamError: () => () => {}
+    },
+    // MCP: delega para a API desktop (IPC), disponível mesmo em modo servidor.
+    mcp: window.api.mcp
   }
 }

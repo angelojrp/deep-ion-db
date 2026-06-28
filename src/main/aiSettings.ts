@@ -20,6 +20,9 @@ interface Stored {
   model: string
   baseUrl?: string
   secret?: Secret
+  sendSchema?: boolean
+  sendExplain?: boolean
+  consentGiven?: boolean
 }
 
 const file = join(app.getPath('userData'), 'ai.json')
@@ -61,7 +64,15 @@ function decrypt(secret: Secret | undefined): string | undefined {
 
 export function getPublicConfig(): AIPublicConfig | null {
   if (!data) return null
-  return { kind: data.kind, model: data.model, baseUrl: data.baseUrl, hasKey: !!data.secret }
+  return {
+    kind: data.kind,
+    model: data.model,
+    baseUrl: data.baseUrl,
+    hasKey: !!data.secret,
+    sendSchema: data.sendSchema ?? true,
+    sendExplain: data.sendExplain ?? true,
+    consentGiven: data.consentGiven ?? false
+  }
 }
 
 export function setConfig(input: AiSettingsInput): AIPublicConfig {
@@ -75,8 +86,20 @@ export function setConfig(input: AiSettingsInput): AIPublicConfig {
       ? encrypt(input.apiKey)
       : input.kind === prev?.kind
         ? prev?.secret
-        : undefined
+        : undefined,
+    sendSchema: input.sendSchema ?? prev?.sendSchema ?? true,
+    sendExplain: input.sendExplain ?? prev?.sendExplain ?? true,
+    // redefine consentimento se o provedor mudou
+    consentGiven: input.kind === prev?.kind ? (prev?.consentGiven ?? false) : false
   }
+  persist()
+  return getPublicConfig()!
+}
+
+/** Registra o aceite do aviso de privacidade (não redefine outras configurações). */
+export function setConsent(): AIPublicConfig {
+  if (!data) throw new Error('IA não configurada.')
+  data = { ...data, consentGiven: true }
   persist()
   return getPublicConfig()!
 }
@@ -93,4 +116,41 @@ export async function chat(messages: AiChatMessage[], system?: string): Promise<
     baseUrl: data.baseUrl
   })
   return provider.chat(messages, system ? { system } : {})
+}
+
+/** AbortController ativo do streaming atual. */
+let streamAbort: AbortController | null = null
+
+export async function chatStream(
+  messages: AiChatMessage[],
+  onToken: (token: string) => void,
+  system?: string
+): Promise<void> {
+  if (!data) throw new Error('IA não configurada — defina o provedor e a chave em Configurações.')
+  const apiKey = decrypt(data.secret)
+  if (!apiKey)
+    throw new Error('Chave de IA ausente — informe a chave do provedor em Configurações.')
+  const provider = createProvider({
+    kind: data.kind,
+    apiKey,
+    model: data.model,
+    baseUrl: data.baseUrl
+  })
+  if (!provider.chatStream) {
+    // Fallback: chat completo, emite resposta toda de uma vez como único token.
+    const reply = await provider.chat(messages, system ? { system } : {})
+    onToken(reply)
+    return
+  }
+  streamAbort = new AbortController()
+  try {
+    await provider.chatStream(messages, onToken, system ? { system } : {}, streamAbort.signal)
+  } finally {
+    streamAbort = null
+  }
+}
+
+export function cancelStream(): void {
+  streamAbort?.abort()
+  streamAbort = null
 }
