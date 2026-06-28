@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppApi, ConnectionConfig, HistoryInput, SqlStatement } from '@shared/types'
+import type {
+  AiChatMessage,
+  AiSettingsInput,
+  AppApi,
+  ConnectionConfig,
+  HistoryInput,
+  SqlStatement
+} from '@shared/types'
 
 const api: AppApi = {
   db: {
@@ -44,6 +51,12 @@ const api: AppApi = {
     toggleFavorite: (id: string) => ipcRenderer.invoke('hist:toggleFavorite', id),
     remove: (id: string) => ipcRenderer.invoke('hist:remove', id),
     clear: () => ipcRenderer.invoke('hist:clear')
+  },
+  ai: {
+    getConfig: () => ipcRenderer.invoke('ai:getConfig'),
+    setConfig: (input: AiSettingsInput) => ipcRenderer.invoke('ai:setConfig', input),
+    chat: (messages: AiChatMessage[], system?: string) =>
+      ipcRenderer.invoke('ai:chat', messages, system)
   }
 }
 

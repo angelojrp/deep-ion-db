@@ -3,7 +3,9 @@ import { DbManager } from './db/manager'
 import { ConnectionStore } from './connectionStore'
 import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
+import * as ai from './aiSettings'
 import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
+import type { AiChatMessage, AiSettingsInput } from '@shared/types'
 
 const manager = new DbManager()
 const store = new ConnectionStore()
@@ -13,6 +15,7 @@ const history = new HistoryStore()
 export function registerDbIpc(): void {
   store.load()
   history.load()
+  ai.loadAiSettings()
 
   ipcMain.handle('db:connect', (_e, config: ConnectionConfig) => manager.connect(config))
   ipcMain.handle('db:disconnect', (_e, id: string) => manager.disconnect(id))
@@ -57,6 +60,13 @@ export function registerDbIpc(): void {
   ipcMain.handle('ws:remove', (_e, path: string) => ws.removeEntry(path))
   ipcMain.handle('ws:saveAs', (_e, defaultName: string, content: string) =>
     ws.saveAs(defaultName, content)
+  )
+
+  // Integração com IA (config + chat). A chave fica só no main.
+  ipcMain.handle('ai:getConfig', () => ai.getPublicConfig())
+  ipcMain.handle('ai:setConfig', (_e, input: AiSettingsInput) => ai.setConfig(input))
+  ipcMain.handle('ai:chat', (_e, messages: AiChatMessage[], system?: string) =>
+    ai.chat(messages, system)
   )
 
   // Histórico de queries.

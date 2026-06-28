@@ -17,6 +17,7 @@ import HistoryPanel from './components/HistoryPanel'
 import SessionsPanel from './components/SessionsPanel'
 import RolesPanel from './components/RolesPanel'
 import HealthPanel from './components/HealthPanel'
+import AiSettingsPanel from './components/AiSettingsPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -103,6 +104,7 @@ export default function App(): JSX.Element {
   const [showSessions, setShowSessions] = useState(false)
   const [showRoles, setShowRoles] = useState(false)
   const [showHealth, setShowHealth] = useState(false)
+  const [showAi, setShowAi] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -450,6 +452,13 @@ export default function App(): JSX.Element {
               >
                 Saúde
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowAi(true)}
+                title="Configuração de IA"
+              >
+                IA
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -522,6 +531,8 @@ export default function App(): JSX.Element {
       {showHealth && activeTab?.connectionId && (
         <HealthPanel connectionId={activeTab.connectionId} onClose={() => setShowHealth(false)} />
       )}
+
+      {showAi && <AiSettingsPanel onClose={() => setShowAi(false)} />}
     </div>
   )
 }
