@@ -10,8 +10,24 @@ permissions:
   contents: write
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run web:build
+      - run: npm run quality
+      - run: npm run test -- --coverage
+
   # Cada SO apenas builda e sobe os instaladores como artifacts (sem publicar).
   build:
+    needs: [quality]
     strategy:
       fail-fast: false
       matrix:
