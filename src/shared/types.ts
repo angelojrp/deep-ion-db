@@ -230,6 +230,55 @@ export interface AppApi {
 }
 
 /**
+ * Modo servidor (#123): o desktop atua como thin client de um servidor web
+ * Deep Ion DB. As credenciais dos bancos ficam no servidor; o desktop só
+ * conhece o ID do data source e envia SQL para execução remota (proxy).
+ */
+
+/** Sessão de servidor salva no desktop (para reconectar rapidamente). */
+export interface ServerSession {
+  id: string
+  label: string
+  serverUrl: string
+}
+
+/** Config pública de auth do servidor (GET /api/auth/config). */
+export interface ServerAuthConfig {
+  authDisabled: boolean
+  issuer: string | null
+  audience: string | null
+}
+
+/** Resultado de uma tentativa de login OIDC no servidor. */
+export interface ServerLoginResult {
+  ok: boolean
+  authDisabled: boolean
+  error?: string
+}
+
+/**
+ * Ponte (preload) do modo servidor: descoberta de auth, login OIDC via
+ * navegador externo + protocol handler (`deepion://callback`), token guardado
+ * com segurança (safeStorage) e persistência de sessões de servidor.
+ */
+export interface ServerAuthApi {
+  /** Descobre a config de auth do servidor. */
+  config(serverUrl: string): Promise<ServerAuthConfig>
+  /** Inicia o login OIDC; resolve quando o callback do navegador chega. */
+  login(serverUrl: string): Promise<ServerLoginResult>
+  /** Token de acesso atual para o servidor (`''` quando auth está desabilitada; `null` se não autenticado). */
+  token(serverUrl: string): Promise<string | null>
+  /** Esquece o token do servidor (logout). */
+  logout(serverUrl: string): Promise<void>
+  /** Sessões de servidor salvas. */
+  listSessions(): Promise<ServerSession[]>
+  /** Salva (ou atualiza) uma sessão de servidor. */
+  saveSession(label: string, serverUrl: string): Promise<ServerSession>
+  /** Remove uma sessão de servidor salva. */
+  removeSession(id: string): Promise<void>
+}
+
+/**
  * Capacidades do ambiente em que a UI roda (arquitetura unificada desktop/web).
  * A mesma UI é renderizada nos dois; cada recurso é mostrado/ocultado por capability.
  * Desktop (Electron) e web (HTTP) injetam conjuntos diferentes.
@@ -263,4 +312,6 @@ export interface Capabilities {
   ai: boolean
   /** Exportar resultados para arquivo (salvar como). */
   exportResults: boolean
+  /** Pode conectar a um servidor web e operar como thin client (#123). Desktop: sim. */
+  serverMode: boolean
 }

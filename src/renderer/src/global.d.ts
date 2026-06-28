@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
-import type { AppApi } from '@shared/types'
+import type { AppApi, ServerAuthApi } from '@shared/types'
 
 declare global {
   interface Window {
     api: AppApi
+    serverAuth: ServerAuthApi
   }
 }
 
