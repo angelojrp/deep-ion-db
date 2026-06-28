@@ -25,7 +25,8 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     ...opts,
     headers: {
-      'content-type': 'application/json',
+      // só envia content-type json quando há body — evita FST_ERR_CTP_EMPTY_JSON_BODY
+      ...(opts.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(t ? { authorization: `Bearer ${t}` } : {}),
       ...(opts.headers ?? {})
     }
