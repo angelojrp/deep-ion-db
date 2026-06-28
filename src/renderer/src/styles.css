@@ -433,6 +433,58 @@ button.link:hover {
   cursor: pointer;
 }
 
+.tab-feedback {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  align-self: center;
+}
+.tab-feedback:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+.feedback-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.feedback-form input,
+.feedback-form select,
+.feedback-form textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+.feedback-form textarea {
+  line-height: 1.5;
+}
+.feedback-hint {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 0;
+}
+
 .tab-new:hover {
   background: none;
   color: var(--text);
