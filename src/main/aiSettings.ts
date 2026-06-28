@@ -117,3 +117,40 @@ export async function chat(messages: AiChatMessage[], system?: string): Promise<
   })
   return provider.chat(messages, system ? { system } : {})
 }
+
+/** AbortController ativo do streaming atual. */
+let streamAbort: AbortController | null = null
+
+export async function chatStream(
+  messages: AiChatMessage[],
+  onToken: (token: string) => void,
+  system?: string
+): Promise<void> {
+  if (!data) throw new Error('IA não configurada — defina o provedor e a chave em Configurações.')
+  const apiKey = decrypt(data.secret)
+  if (!apiKey)
+    throw new Error('Chave de IA ausente — informe a chave do provedor em Configurações.')
+  const provider = createProvider({
+    kind: data.kind,
+    apiKey,
+    model: data.model,
+    baseUrl: data.baseUrl
+  })
+  if (!provider.chatStream) {
+    // Fallback: chat completo, emite resposta toda de uma vez como único token.
+    const reply = await provider.chat(messages, system ? { system } : {})
+    onToken(reply)
+    return
+  }
+  streamAbort = new AbortController()
+  try {
+    await provider.chatStream(messages, onToken, system ? { system } : {}, streamAbort.signal)
+  } finally {
+    streamAbort = null
+  }
+}
+
+export function cancelStream(): void {
+  streamAbort?.abort()
+  streamAbort = null
+}

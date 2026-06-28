@@ -65,7 +65,25 @@ const api: AppApi = {
     setConfig: (input: AiSettingsInput) => ipcRenderer.invoke('ai:setConfig', input),
     setConsent: () => ipcRenderer.invoke('ai:setConsent'),
     chat: (messages: AiChatMessage[], system?: string) =>
-      ipcRenderer.invoke('ai:chat', messages, system)
+      ipcRenderer.invoke('ai:chat', messages, system),
+    stream: (messages: AiChatMessage[], system?: string) =>
+      ipcRenderer.invoke('ai:stream', messages, system),
+    cancelStream: () => ipcRenderer.invoke('ai:cancelStream'),
+    onToken: (cb: (token: string) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, token: string): void => cb(token)
+      ipcRenderer.on('ai:token', handler)
+      return () => ipcRenderer.removeListener('ai:token', handler)
+    },
+    onStreamDone: (cb: () => void) => {
+      const handler = (): void => cb()
+      ipcRenderer.on('ai:done', handler)
+      return () => ipcRenderer.removeListener('ai:done', handler)
+    },
+    onStreamError: (cb: (msg: string) => void) => {
+      const handler = (_: Electron.IpcRendererEvent, msg: string): void => cb(msg)
+      ipcRenderer.on('ai:error', handler)
+      return () => ipcRenderer.removeListener('ai:error', handler)
+    }
   }
 }
 
