@@ -61,6 +61,7 @@ export function registerDbIpc(): void {
   ipcMain.handle('ws:saveAs', (_e, defaultName: string, content: string) =>
     ws.saveAs(defaultName, content)
   )
+  ipcMain.handle('ws:openFile', () => ws.openTextFile())
 
   // Integração com IA (config + chat). A chave fica só no main.
   ipcMain.handle('ai:getConfig', () => ai.getPublicConfig())

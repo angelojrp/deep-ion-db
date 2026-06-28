@@ -43,7 +43,8 @@ const api: AppApi = {
     create: (dir: string, name: string) => ipcRenderer.invoke('ws:create', dir, name),
     remove: (path: string) => ipcRenderer.invoke('ws:remove', path),
     saveAs: (defaultName: string, content: string) =>
-      ipcRenderer.invoke('ws:saveAs', defaultName, content)
+      ipcRenderer.invoke('ws:saveAs', defaultName, content),
+    openFile: () => ipcRenderer.invoke('ws:openFile')
   },
   hist: {
     list: () => ipcRenderer.invoke('hist:list'),
