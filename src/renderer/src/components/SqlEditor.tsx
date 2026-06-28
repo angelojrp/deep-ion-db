@@ -22,11 +22,12 @@ interface Props {
 
 function mapDialect(
   kind: DbKind | undefined
-): 'postgresql' | 'mysql' | 'sqlite' | 'transactsql' | 'sql' {
+): 'postgresql' | 'mysql' | 'sqlite' | 'transactsql' | 'plsql' | 'sql' {
   if (kind === 'postgres') return 'postgresql'
   if (kind === 'mysql') return 'mysql'
   if (kind === 'sqlite') return 'sqlite'
   if (kind === 'mssql') return 'transactsql'
+  if (kind === 'oracle') return 'plsql'
   return 'sql'
 }
 
