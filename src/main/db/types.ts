@@ -1,6 +1,6 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
-import type { SessionInfo, SqlStatement } from '@shared/types'
+import type { RoleInfo, SessionInfo, SqlStatement } from '@shared/types'
 
 export type {
   ColumnInfo,
@@ -8,6 +8,7 @@ export type {
   HistoryEntry,
   HistoryInput,
   QueryResult,
+  RoleInfo,
   SavedConnection,
   SchemaTable,
   SessionInfo,
@@ -28,4 +29,5 @@ export interface Driver {
   tableDdl(schema: string, table: string): Promise<string>
   activeSessions(): Promise<SessionInfo[]>
   killSession(pid: string | number): Promise<void>
+  listRoles(): Promise<RoleInfo[]>
 }

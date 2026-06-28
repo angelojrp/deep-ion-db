@@ -16,7 +16,9 @@ const api: AppApi = {
     tableDdl: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:tableDdl', id, schema, table),
     activeSessions: (id: string) => ipcRenderer.invoke('db:activeSessions', id),
-    killSession: (id: string, pid: string | number) => ipcRenderer.invoke('db:killSession', id, pid)
+    killSession: (id: string, pid: string | number) =>
+      ipcRenderer.invoke('db:killSession', id, pid),
+    listRoles: (id: string) => ipcRenderer.invoke('db:listRoles', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

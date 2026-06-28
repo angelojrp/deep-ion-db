@@ -15,6 +15,7 @@ import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
 import HistoryPanel from './components/HistoryPanel'
 import SessionsPanel from './components/SessionsPanel'
+import RolesPanel from './components/RolesPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -99,6 +100,7 @@ export default function App(): JSX.Element {
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
   const [showHistory, setShowHistory] = useState(false)
   const [showSessions, setShowSessions] = useState(false)
+  const [showRoles, setShowRoles] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -430,6 +432,14 @@ export default function App(): JSX.Element {
               >
                 Sessões
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowRoles(true)}
+                disabled={!activeTab?.connectionId}
+                title="Usuários e roles"
+              >
+                Usuários
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -488,6 +498,14 @@ export default function App(): JSX.Element {
         <SessionsPanel
           connectionId={activeTab.connectionId}
           onClose={() => setShowSessions(false)}
+        />
+      )}
+
+      {showRoles && activeTab?.connectionId && (
+        <RolesPanel
+          connectionId={activeTab.connectionId}
+          onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+          onClose={() => setShowRoles(false)}
         />
       )}
     </div>

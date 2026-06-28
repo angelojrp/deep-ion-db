@@ -34,6 +34,7 @@ export function registerDbIpc(): void {
   ipcMain.handle('db:killSession', (_e, id: string, pid: string | number) =>
     manager.killSession(id, pid)
   )
+  ipcMain.handle('db:listRoles', (_e, id: string) => manager.listRoles(id))
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

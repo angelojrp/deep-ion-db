@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   Driver,
   QueryResult,
+  RoleInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -99,6 +100,18 @@ export class PostgresDriver implements Driver {
 
   async killSession(pid: string | number): Promise<void> {
     await this.client.query('select pg_terminate_backend($1)', [pid])
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    const res = await this.client.query(
+      `select rolname as name, rolcanlogin as "canLogin", rolsuper as "isSuper"
+         from pg_roles order by rolname`
+    )
+    return res.rows.map((r) => ({
+      name: r.name,
+      canLogin: r.canLogin,
+      isSuper: r.isSuper
+    }))
   }
 
   async tableDdl(schema: string, table: string): Promise<string> {

@@ -4,6 +4,7 @@ import type {
   ConnectionConfig,
   Driver,
   QueryResult,
+  RoleInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -116,6 +117,13 @@ export class MysqlDriver implements Driver {
 
   async killSession(pid: string | number): Promise<void> {
     await this.connection.query(`KILL ${Number(pid)}`)
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    const [rows] = await this.connection.query(
+      `select distinct grantee as name from information_schema.user_privileges order by grantee`
+    )
+    return (rows as Record<string, string>[]).map((r) => ({ name: r.name }))
   }
 
   async tableDdl(schema: string, table: string): Promise<string> {
