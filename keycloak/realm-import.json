@@ -1,0 +1,107 @@
+{
+  "realm": "deepion",
+  "displayName": "Deep Ion DB",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+
+  "clients": [
+    {
+      "clientId": "deep-ion-db",
+      "name": "Deep Ion DB",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:4000/*",
+        "http://localhost:4001/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": ["http://localhost:4000", "http://localhost:4001", "http://localhost:5173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["web-origins", "profile", "roles", "email"],
+      "optionalClientScopes": ["address", "phone", "offline_access"]
+    }
+  ],
+
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrador do Deep Ion DB — acesso total ao painel administrativo"
+      },
+      {
+        "name": "user",
+        "description": "Usuário padrão — acesso apenas aos data sources concedidos"
+      }
+    ]
+  },
+
+  "users": [
+    {
+      "username": "admin@deepion.local",
+      "email": "admin@deepion.local",
+      "firstName": "Admin",
+      "lastName": "Deep Ion",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin", "user"]
+    },
+    {
+      "username": "user@deepion.local",
+      "email": "user@deepion.local",
+      "firstName": "Usuário",
+      "lastName": "Teste",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "User123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    }
+  ],
+
+  "scopeMappings": [
+    {
+      "client": "deep-ion-db",
+      "roles": ["admin", "user"]
+    }
+  ],
+
+  "protocolMappers": [
+    {
+      "name": "realm-roles-mapper",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-usermodel-realm-role-mapper",
+      "config": {
+        "multivalued": "true",
+        "claim.name": "roles",
+        "jsonType.label": "String",
+        "id.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "true"
+      }
+    }
+  ]
+}
