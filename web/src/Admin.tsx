@@ -190,12 +190,15 @@ function DataSourcesTab(): JSX.Element {
     }
   }
 
-  if (loading) return <p className="muted">Carregando…</p>
+  if (loading) return <p className="admin-loading">Carregando…</p>
 
   return (
     <div>
-      {error && <p className="form-error">{error}</p>}
-      <div className="toolbar" style={{ marginBottom: 12 }}>
+      {error && <div className="admin-error">{error}</div>}
+      <div className="admin-section-bar">
+        <h3>
+          Data Sources<span className="admin-count">{sources.length}</span>
+        </h3>
         <button className="run-btn" onClick={openNew}>
           + Novo Data Source
         </button>
@@ -204,80 +207,82 @@ function DataSourcesTab(): JSX.Element {
       {showForm && (
         <div className="admin-form">
           <h3>{editing ? 'Editar Data Source' : 'Novo Data Source'}</h3>
-          <label>
-            Nome
-            <input
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            />
-          </label>
-          <label>
-            Tipo
-            <select
-              value={form.kind}
-              onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
-            >
-              <option value="postgres">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-              <option value="sqlite">SQLite</option>
-            </select>
-          </label>
-          <label>
-            Host
-            <input
-              value={form.host}
-              onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
-            />
-          </label>
-          <label>
-            Porta
-            <input
-              type="number"
-              value={form.port}
-              onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
-            />
-          </label>
-          <label>
-            Banco
-            <input
-              value={form.database}
-              onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
-            />
-          </label>
-          <label>
-            Usuário
-            <input
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-            />
-          </label>
-          <label>
-            Senha {editing && '(deixar vazio para manter)'}
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-            />
-          </label>
-          <label>
-            Ambiente
-            <select
-              value={form.environment}
-              onChange={(e) => setForm((f) => ({ ...f, environment: e.target.value }))}
-            >
-              <option value="nonprod">não-produção</option>
-              <option value="prod">produção</option>
-            </select>
-          </label>
-          <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <input
-              type="checkbox"
-              checked={form.ssl}
-              onChange={(e) => setForm((f) => ({ ...f, ssl: e.target.checked }))}
-            />
-            SSL
-          </label>
-          <div className="toolbar">
+          <div className="admin-form-grid">
+            <label>
+              Nome
+              <input
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </label>
+            <label>
+              Tipo
+              <select
+                value={form.kind}
+                onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
+              >
+                <option value="postgres">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+                <option value="sqlite">SQLite</option>
+              </select>
+            </label>
+            <label>
+              Host
+              <input
+                value={form.host}
+                onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+              />
+            </label>
+            <label>
+              Porta
+              <input
+                type="number"
+                value={form.port}
+                onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
+              />
+            </label>
+            <label>
+              Banco
+              <input
+                value={form.database}
+                onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
+              />
+            </label>
+            <label>
+              Usuário
+              <input
+                value={form.username}
+                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              />
+            </label>
+            <label>
+              Senha {editing && '(deixar vazio para manter)'}
+              <input
+                type="password"
+                value={form.password}
+                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+              />
+            </label>
+            <label>
+              Ambiente
+              <select
+                value={form.environment}
+                onChange={(e) => setForm((f) => ({ ...f, environment: e.target.value }))}
+              >
+                <option value="nonprod">não-produção</option>
+                <option value="prod">produção</option>
+              </select>
+            </label>
+            <label className="admin-check">
+              <input
+                type="checkbox"
+                checked={form.ssl}
+                onChange={(e) => setForm((f) => ({ ...f, ssl: e.target.checked }))}
+              />
+              SSL
+            </label>
+          </div>
+          <div className="admin-form-actions">
             <button className="run-btn" onClick={save}>
               Salvar
             </button>
@@ -288,61 +293,63 @@ function DataSourcesTab(): JSX.Element {
         </div>
       )}
 
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Tipo</th>
-            <th>Host</th>
-            <th>Banco</th>
-            <th>Ambiente</th>
-            <th>SSL</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sources.map((ds) => (
-            <tr key={ds.id}>
-              <td>{ds.name}</td>
-              <td>{ds.kind}</td>
-              <td>
-                {ds.host ?? '—'}
-                {ds.port ? `:${ds.port}` : ''}
-              </td>
-              <td>{ds.database ?? '—'}</td>
-              <td>
-                <span className={ds.environment === 'prod' ? 'badge-prod' : 'badge-dev'}>
-                  {ds.environment}
-                </span>
-              </td>
-              <td>{ds.ssl ? 'sim' : 'não'}</td>
-              <td>
-                <button className="ghost-btn" onClick={() => void testConn(ds.id)}>
-                  Testar
-                </button>
-                {testResult[ds.id] && (
-                  <span className="muted" style={{ marginLeft: 6 }}>
-                    {testResult[ds.id]}
-                  </span>
-                )}
-                <button className="ghost-btn" onClick={() => openEdit(ds)}>
-                  Editar
-                </button>
-                <button className="ghost-btn danger-btn" onClick={() => void remove(ds.id)}>
-                  Remover
-                </button>
-              </td>
-            </tr>
-          ))}
-          {sources.length === 0 && (
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
             <tr>
-              <td colSpan={7} className="muted">
-                Nenhum data source cadastrado.
-              </td>
+              <th>Nome</th>
+              <th>Tipo</th>
+              <th>Host</th>
+              <th>Banco</th>
+              <th>Ambiente</th>
+              <th>SSL</th>
+              <th>Ações</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sources.map((ds) => (
+              <tr key={ds.id}>
+                <td>{ds.name}</td>
+                <td>{ds.kind}</td>
+                <td>
+                  {ds.host ?? '—'}
+                  {ds.port ? `:${ds.port}` : ''}
+                </td>
+                <td>{ds.database ?? '—'}</td>
+                <td>
+                  <span className={ds.environment === 'prod' ? 'badge-prod' : 'badge-dev'}>
+                    {ds.environment}
+                  </span>
+                </td>
+                <td>{ds.ssl ? 'sim' : 'não'}</td>
+                <td>
+                  <div className="admin-actions">
+                    <button className="ghost-btn" onClick={() => void testConn(ds.id)}>
+                      Testar
+                    </button>
+                    {testResult[ds.id] && (
+                      <span className="admin-test-result">{testResult[ds.id]}</span>
+                    )}
+                    <button className="ghost-btn" onClick={() => openEdit(ds)}>
+                      Editar
+                    </button>
+                    <button className="ghost-btn danger-btn" onClick={() => void remove(ds.id)}>
+                      Remover
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {sources.length === 0 && (
+              <tr>
+                <td colSpan={7} className="admin-empty">
+                  Nenhum data source cadastrado.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -388,49 +395,58 @@ function UsersTab(): JSX.Element {
     }
   }
 
-  if (loading) return <p className="muted">Carregando…</p>
+  if (loading) return <p className="admin-loading">Carregando…</p>
 
   return (
     <div>
-      {error && <p className="form-error">{error}</p>}
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>E-mail</th>
-            <th>Nome</th>
-            <th>Papel</th>
-            <th>Desde</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td>{u.email ?? '—'}</td>
-              <td>{u.name ?? '—'}</td>
-              <td>
-                <select value={u.role} onChange={(e) => void changeRole(u.id, e.target.value)}>
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
-                </select>
-              </td>
-              <td>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
-              <td>
-                <button className="ghost-btn danger-btn" onClick={() => void remove(u.id)}>
-                  Remover
-                </button>
-              </td>
-            </tr>
-          ))}
-          {users.length === 0 && (
+      {error && <div className="admin-error">{error}</div>}
+      <div className="admin-section-bar">
+        <h3>
+          Usuários<span className="admin-count">{users.length}</span>
+        </h3>
+      </div>
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
             <tr>
-              <td colSpan={5} className="muted">
-                Nenhum usuário.
-              </td>
+              <th>E-mail</th>
+              <th>Nome</th>
+              <th>Papel</th>
+              <th>Desde</th>
+              <th>Ações</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id}>
+                <td>{u.email ?? '—'}</td>
+                <td>{u.name ?? '—'}</td>
+                <td>
+                  <select value={u.role} onChange={(e) => void changeRole(u.id, e.target.value)}>
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </td>
+                <td>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                <td>
+                  <div className="admin-actions">
+                    <button className="ghost-btn danger-btn" onClick={() => void remove(u.id)}>
+                      Remover
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 && (
+              <tr>
+                <td colSpan={5} className="admin-empty">
+                  Nenhum usuário.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -522,12 +538,15 @@ function GrantsTab(): JSX.Element {
   const userMap = Object.fromEntries(users.map((u) => [u.id, u.email ?? u.name ?? u.id]))
   const dsMap = Object.fromEntries(sources.map((d) => [d.id, d.name]))
 
-  if (loading) return <p className="muted">Carregando…</p>
+  if (loading) return <p className="admin-loading">Carregando…</p>
 
   return (
     <div>
-      {error && <p className="form-error">{error}</p>}
-      <div className="toolbar" style={{ marginBottom: 12 }}>
+      {error && <div className="admin-error">{error}</div>}
+      <div className="admin-section-bar">
+        <h3>
+          Concessões<span className="admin-count">{grants.length}</span>
+        </h3>
         <button
           className="run-btn"
           onClick={() => {
@@ -542,53 +561,55 @@ function GrantsTab(): JSX.Element {
       {showForm && (
         <div className="admin-form">
           <h3>Conceder Acesso</h3>
-          <label>
-            Usuário
-            <select
-              value={form.userId}
-              onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
-            >
-              <option value="">Selecione…</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.email ?? u.name ?? u.id}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Data Source
-            <select
-              value={form.dataSourceId}
-              onChange={(e) => setForm((f) => ({ ...f, dataSourceId: e.target.value }))}
-            >
-              <option value="">Selecione…</option>
-              {sources.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Modo
-            <select
-              value={form.mode}
-              onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
-            >
-              <option value="read">Leitura</option>
-              <option value="readwrite">Leitura e Escrita</option>
-            </select>
-          </label>
-          <label>
-            Validade (opcional)
-            <input
-              type="datetime-local"
-              value={form.expiresAt}
-              onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
-            />
-          </label>
-          <div className="toolbar">
+          <div className="admin-form-grid">
+            <label>
+              Usuário
+              <select
+                value={form.userId}
+                onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
+              >
+                <option value="">Selecione…</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.email ?? u.name ?? u.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Data Source
+              <select
+                value={form.dataSourceId}
+                onChange={(e) => setForm((f) => ({ ...f, dataSourceId: e.target.value }))}
+              >
+                <option value="">Selecione…</option>
+                {sources.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Modo
+              <select
+                value={form.mode}
+                onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
+              >
+                <option value="read">Leitura</option>
+                <option value="readwrite">Leitura e Escrita</option>
+              </select>
+            </label>
+            <label>
+              Validade (opcional)
+              <input
+                type="datetime-local"
+                value={form.expiresAt}
+                onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
+              />
+            </label>
+          </div>
+          <div className="admin-form-actions">
             <button
               className="run-btn"
               onClick={create}
@@ -603,48 +624,52 @@ function GrantsTab(): JSX.Element {
         </div>
       )}
 
-      <table className="admin-table">
-        <thead>
-          <tr>
-            <th>Usuário</th>
-            <th>Data Source</th>
-            <th>Modo</th>
-            <th>Validade</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {grants.map((g) => (
-            <tr key={g.id} className={g.expired || g.suspended ? 'row-inactive' : ''}>
-              <td>{userMap[g.user_id] ?? g.user_id}</td>
-              <td>{dsMap[g.data_source_id] ?? g.data_source_id}</td>
-              <td>{g.mode}</td>
-              <td>{g.expires_at ? new Date(g.expires_at).toLocaleString('pt-BR') : '—'}</td>
-              <td>
-                {g.expired && <span className="badge-prod">expirado</span>}
-                {g.suspended && <span className="badge-prod">suspenso</span>}
-                {!g.expired && !g.suspended && <span className="badge-dev">ativo</span>}
-              </td>
-              <td>
-                <button className="ghost-btn" onClick={() => void toggleSuspend(g)}>
-                  {g.suspended ? 'Reativar' : 'Suspender'}
-                </button>
-                <button className="ghost-btn danger-btn" onClick={() => void remove(g.id)}>
-                  Revogar
-                </button>
-              </td>
-            </tr>
-          ))}
-          {grants.length === 0 && (
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
             <tr>
-              <td colSpan={6} className="muted">
-                Nenhum grant.
-              </td>
+              <th>Usuário</th>
+              <th>Data Source</th>
+              <th>Modo</th>
+              <th>Validade</th>
+              <th>Status</th>
+              <th>Ações</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {grants.map((g) => (
+              <tr key={g.id} className={g.expired || g.suspended ? 'row-inactive' : ''}>
+                <td>{userMap[g.user_id] ?? g.user_id}</td>
+                <td>{dsMap[g.data_source_id] ?? g.data_source_id}</td>
+                <td>{g.mode}</td>
+                <td>{g.expires_at ? new Date(g.expires_at).toLocaleString('pt-BR') : '—'}</td>
+                <td>
+                  {g.expired && <span className="badge-warn">expirado</span>}
+                  {g.suspended && <span className="badge-muted">suspenso</span>}
+                  {!g.expired && !g.suspended && <span className="badge-dev">ativo</span>}
+                </td>
+                <td>
+                  <div className="admin-actions">
+                    <button className="ghost-btn" onClick={() => void toggleSuspend(g)}>
+                      {g.suspended ? 'Reativar' : 'Suspender'}
+                    </button>
+                    <button className="ghost-btn danger-btn" onClick={() => void remove(g.id)}>
+                      Revogar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {grants.length === 0 && (
+              <tr>
+                <td colSpan={6} className="admin-empty">
+                  Nenhum grant.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -720,7 +745,7 @@ function AuditTab(): JSX.Element {
 
   return (
     <div>
-      {error && <p className="form-error">{error}</p>}
+      {error && <div className="admin-error">{error}</div>}
       <div className="admin-filters">
         <input
           placeholder="Usuário ID"
@@ -744,6 +769,7 @@ function AuditTab(): JSX.Element {
           value={filters.to}
           onChange={(e) => setFilters((f) => ({ ...f, to: e.target.value }))}
         />
+        <div className="admin-filters-spacer" />
         <button className="run-btn" onClick={applyFilters}>
           Filtrar
         </button>
@@ -752,47 +778,51 @@ function AuditTab(): JSX.Element {
         </button>
       </div>
 
-      {loading && <p className="muted">Carregando…</p>}
+      {loading && <p className="admin-loading">Carregando…</p>}
 
       {page && (
         <>
-          <p className="muted" style={{ marginBottom: 8 }}>
+          <p className="admin-meta">
             {page.total} entradas · página {page.page}/{totalPages}
           </p>
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Data/Hora</th>
-                <th>Usuário</th>
-                <th>Ação</th>
-                <th>Data Source</th>
-                <th>Detalhe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {page.entries.map((e) => (
-                <tr key={e.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{new Date(e.ts).toLocaleString('pt-BR')}</td>
-                  <td>{e.email ?? e.user_id ?? '—'}</td>
-                  <td>
-                    <code>{e.action}</code>
-                  </td>
-                  <td>{e.data_source_id ?? '—'}</td>
-                  <td>
-                    <span className="muted">{e.detail ? JSON.stringify(e.detail) : ''}</span>
-                  </td>
-                </tr>
-              ))}
-              {page.entries.length === 0 && (
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="muted">
-                    Sem entradas.
-                  </td>
+                  <th>Data/Hora</th>
+                  <th>Usuário</th>
+                  <th>Ação</th>
+                  <th>Data Source</th>
+                  <th>Detalhe</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-          <div className="toolbar" style={{ marginTop: 12, justifyContent: 'center' }}>
+              </thead>
+              <tbody>
+                {page.entries.map((e) => (
+                  <tr key={e.id}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {new Date(e.ts).toLocaleString('pt-BR')}
+                    </td>
+                    <td>{e.email ?? e.user_id ?? '—'}</td>
+                    <td>
+                      <code>{e.action}</code>
+                    </td>
+                    <td>{e.data_source_id ?? '—'}</td>
+                    <td>
+                      <span className="muted">{e.detail ? JSON.stringify(e.detail) : ''}</span>
+                    </td>
+                  </tr>
+                ))}
+                {page.entries.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="admin-empty">
+                      Sem entradas.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="admin-pagination">
             <button
               className="ghost-btn"
               onClick={() => setCurrentPage((p) => p - 1)}
@@ -839,7 +869,10 @@ export default function Admin({ onBack }: Props): JSX.Element {
         <button className="ghost-btn" onClick={onBack}>
           ← Voltar
         </button>
-        <h2>Painel de Administração</h2>
+        <div className="admin-heading">
+          <h2>Painel de Administração</h2>
+          <p className="admin-subtitle">Gerencie data sources, usuários, concessões e auditoria</p>
+        </div>
       </div>
       <div className="admin-tabs">
         {tabs.map((t) => (
