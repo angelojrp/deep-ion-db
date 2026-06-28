@@ -38,7 +38,10 @@ function createWindow(): void {
   win.on('ready-to-show', () => win.show())
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    const allowed = ['https:', 'http:', 'mailto:']
+    if (allowed.includes(new URL(url).protocol)) {
+      shell.openExternal(url).catch((e) => console.warn('openExternal:', e))
+    }
     return { action: 'deny' }
   })
 
@@ -46,7 +49,14 @@ function createWindow(): void {
   win.webContents.on('will-navigate', (event, url) => {
     if (url !== win.webContents.getURL()) {
       event.preventDefault()
-      shell.openExternal(url)
+      const allowed = ['https:', 'http:', 'mailto:']
+      try {
+        if (allowed.includes(new URL(url).protocol)) {
+          shell.openExternal(url).catch((e) => console.warn('openExternal:', e))
+        }
+      } catch {
+        // URL inválida — ignorar silenciosamente
+      }
     }
   })
 
