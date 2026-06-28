@@ -1,4 +1,5 @@
-import { type JSX, useEffect, useState } from 'react'
+import { type JSX, useEffect, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import type { AppApi, DbKind, QueryResult, SqlStatement } from '@shared/types'
 import { toCsv, toJson } from '../export'
 import { useApi, useCaps } from '../api'
@@ -46,6 +47,8 @@ async function exportResult(api: AppApi, result: QueryResult, kind: 'csv' | 'jso
   await api.ws.saveAs(`export.${kind}`, content)
 }
 
+const ROW_HEIGHT = 32
+
 export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Element {
   const [editMode, setEditMode] = useState(false)
   const [edits, setEdits] = useState<Record<number, Record<string, string>>>({})
@@ -55,6 +58,7 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
   const [applyError, setApplyError] = useState<string | null>(null)
   const api = useApi()
   const caps = useCaps()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setEditMode(false)
@@ -184,6 +188,21 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
 
   const canEdit = caps.editableGrid && !!edit && edit.pkCols.length > 0
 
+  // Virtual scrolling is only active when not in edit mode (edit mode adds new rows dynamically)
+  const useVirtual = !editMode
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+    enabled: useVirtual
+  })
+
+  const virtualItems = useVirtual ? rowVirtualizer.getVirtualItems() : null
+  const totalVirtualSize = useVirtual ? rowVirtualizer.getTotalSize() : 0
+
   return (
     <div className="grid-wrap">
       <div className="grid-status">
@@ -222,8 +241,26 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
           )}
         </span>
       </div>
+      {result.truncated && (
+        <div
+          style={{
+            padding: '6px 12px',
+            background: 'var(--color-warning-bg, #fff8e1)',
+            color: 'var(--color-warning-text, #7c5800)',
+            borderBottom: '1px solid var(--color-warning-border, #ffe082)',
+            fontSize: '0.85em'
+          }}
+        >
+          ⚠ Mostrando 10.000 de ~{result.totalRows?.toLocaleString()}+ linhas. Adicione WHERE/LIMIT
+          para refinar.
+        </div>
+      )}
       {applyError && <pre className="error">{applyError}</pre>}
-      <div className="grid-scroll">
+      <div
+        ref={scrollContainerRef}
+        className="grid-scroll"
+        style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 300px)' }}
+      >
         <table className="grid">
           <thead>
             <tr>
@@ -234,69 +271,102 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, idx) => (
-              <tr key={idx} className={deleted.has(idx) ? 'row-deleted' : undefined}>
-                {editMode && (
-                  <td className="row-action">
-                    <button
-                      className="link"
-                      title={deleted.has(idx) ? 'Desfazer exclusão' : 'Excluir linha'}
-                      onClick={() => toggleDelete(idx)}
-                    >
-                      {deleted.has(idx) ? '↺' : '×'}
-                    </button>
-                  </td>
+            {useVirtual && virtualItems ? (
+              <>
+                {virtualItems.length > 0 && virtualItems[0].start > 0 && (
+                  <tr style={{ height: virtualItems[0].start }} />
                 )}
-                {cols.map((c) => {
-                  const edited = edits[idx]?.[c]
-                  const value = edited ?? display(row[c])
+                {virtualItems.map((virtualRow) => {
+                  const idx = virtualRow.index
+                  const row = rows[idx]
                   return (
-                    <td key={c}>
-                      {editMode ? (
-                        <input
-                          className="cell-input"
-                          value={value}
-                          disabled={deleted.has(idx)}
-                          onChange={(e) => setCell(idx, c, e.target.value)}
-                        />
-                      ) : row[c] === null || row[c] === undefined ? (
-                        <span className="null">NULL</span>
-                      ) : (
-                        display(row[c])
-                      )}
-                    </td>
+                    <tr key={idx} style={{ height: ROW_HEIGHT }}>
+                      {cols.map((c) => (
+                        <td key={c}>
+                          {row[c] === null || row[c] === undefined ? (
+                            <span className="null">NULL</span>
+                          ) : (
+                            display(row[c])
+                          )}
+                        </td>
+                      ))}
+                    </tr>
                   )
                 })}
-              </tr>
-            ))}
-            {editMode &&
-              newRows.map((nr, ni) => (
-                <tr key={`new-${ni}`} className="row-new">
-                  <td className="row-action">
-                    <button
-                      className="link"
-                      title="Remover"
-                      onClick={() => setNewRows((p) => p.filter((_, i) => i !== ni))}
-                    >
-                      ×
-                    </button>
-                  </td>
-                  {cols.map((c) => (
-                    <td key={c}>
-                      <input
-                        className="cell-input"
-                        value={nr[c] ?? ''}
-                        placeholder="NULL"
-                        onChange={(e) =>
-                          setNewRows((p) =>
-                            p.map((r, i) => (i === ni ? { ...r, [c]: e.target.value } : r))
-                          )
-                        }
-                      />
-                    </td>
+                {virtualItems.length > 0 &&
+                  (() => {
+                    const last = virtualItems[virtualItems.length - 1]
+                    const paddingBottom = totalVirtualSize - last.end
+                    return paddingBottom > 0 ? <tr style={{ height: paddingBottom }} /> : null
+                  })()}
+              </>
+            ) : (
+              <>
+                {rows.map((row, idx) => (
+                  <tr key={idx} className={deleted.has(idx) ? 'row-deleted' : undefined}>
+                    {editMode && (
+                      <td className="row-action">
+                        <button
+                          className="link"
+                          title={deleted.has(idx) ? 'Desfazer exclusão' : 'Excluir linha'}
+                          onClick={() => toggleDelete(idx)}
+                        >
+                          {deleted.has(idx) ? '↺' : '×'}
+                        </button>
+                      </td>
+                    )}
+                    {cols.map((c) => {
+                      const edited = edits[idx]?.[c]
+                      const value = edited ?? display(row[c])
+                      return (
+                        <td key={c}>
+                          {editMode ? (
+                            <input
+                              className="cell-input"
+                              value={value}
+                              disabled={deleted.has(idx)}
+                              onChange={(e) => setCell(idx, c, e.target.value)}
+                            />
+                          ) : row[c] === null || row[c] === undefined ? (
+                            <span className="null">NULL</span>
+                          ) : (
+                            display(row[c])
+                          )}
+                        </td>
+                      )
+                    })}
+                  </tr>
+                ))}
+                {editMode &&
+                  newRows.map((nr, ni) => (
+                    <tr key={`new-${ni}`} className="row-new">
+                      <td className="row-action">
+                        <button
+                          className="link"
+                          title="Remover"
+                          onClick={() => setNewRows((p) => p.filter((_, i) => i !== ni))}
+                        >
+                          ×
+                        </button>
+                      </td>
+                      {cols.map((c) => (
+                        <td key={c}>
+                          <input
+                            className="cell-input"
+                            value={nr[c] ?? ''}
+                            placeholder="NULL"
+                            onChange={(e) =>
+                              setNewRows((p) =>
+                                p.map((r, i) => (i === ni ? { ...r, [c]: e.target.value } : r))
+                              )
+                            }
+                          />
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
+              </>
+            )}
           </tbody>
         </table>
       </div>

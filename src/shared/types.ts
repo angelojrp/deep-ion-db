@@ -33,6 +33,10 @@ export interface QueryResult {
   durationMs: number
   /** Comando executado, quando disponível (ex.: SELECT, INSERT, OK). */
   command?: string
+  /** Indica que o resultado foi truncado ao teto de linhas configurado. */
+  truncated?: boolean
+  /** Total de linhas antes do truncamento (apenas quando truncated = true). */
+  totalRows?: number
 }
 
 export interface SchemaTable {
