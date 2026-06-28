@@ -12,7 +12,14 @@ import type { ConnectionConfig } from '../main/db/types'
  *   DEEPION_DB_HOST, DEEPION_DB_PORT, DEEPION_DB_USER, DEEPION_DB_PASSWORD, DEEPION_DB_NAME
  */
 
-const READONLY = /^\s*(select|with|explain|show)\b/i
+/**
+ * Rejeita SQL com múltiplos statements (ex.: SELECT 1; DROP TABLE users).
+ * Remove o ponto-e-vírgula final (opcional) antes de verificar.
+ */
+function hasMultipleStatements(sql: string): boolean {
+  const withoutTrailingSemicolon = sql.trimEnd().replace(/;\s*$/, '')
+  return /;\s*\S/.test(withoutTrailingSemicolon)
+}
 
 function configFromEnv(): ConnectionConfig {
   return {
@@ -52,17 +59,32 @@ async function main(): Promise<void> {
 
   server.tool(
     'query',
-    'Executa uma consulta SOMENTE LEITURA (SELECT/WITH/EXPLAIN/SHOW) e retorna até 200 linhas.',
+    'Executa uma consulta SOMENTE LEITURA e retorna até 200 linhas. Multi-statements são proibidos.',
     { sql: z.string() },
     async ({ sql }) => {
-      if (!READONLY.test(sql)) {
+      if (hasMultipleStatements(sql)) {
         return {
-          content: [{ type: 'text', text: 'Permitido apenas SELECT/WITH/EXPLAIN/SHOW.' }],
+          content: [
+            {
+              type: 'text',
+              text: 'Multi-statements são proibidos no modo somente leitura. Envie um único statement por vez.'
+            }
+          ],
           isError: true
         }
       }
-      const r = await driver.query(sql)
-      return text({ columns: r.columns, rows: r.rows.slice(0, 200), rowCount: r.rowCount })
+      // Executa dentro de uma transação READ ONLY para garantir que nenhuma
+      // escrita seja possível, mesmo via CTEs com INSERT/UPDATE/DELETE.
+      await driver.query('BEGIN')
+      try {
+        await driver.query('SET TRANSACTION READ ONLY')
+        const r = await driver.query(sql)
+        await driver.query('COMMIT')
+        return text({ columns: r.columns, rows: r.rows.slice(0, 200), rowCount: r.rowCount })
+      } catch (e) {
+        await driver.query('ROLLBACK').catch(() => {})
+        throw e
+      }
     }
   )
 

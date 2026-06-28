@@ -25,7 +25,17 @@ export class PostgresDriver implements Driver {
       user: config.user,
       password: config.password,
       database: config.database,
-      ssl: config.ssl ? { rejectUnauthorized: false } : undefined
+      ssl: config.ssl
+        ? (() => {
+            const rejectUnauthorized = config.sslRejectUnauthorized ?? true
+            if (!rejectUnauthorized) {
+              console.warn(
+                '[postgres] sslRejectUnauthorized=false: verificação de certificado TLS desabilitada. Use apenas em desenvolvimento/teste.'
+              )
+            }
+            return { rejectUnauthorized }
+          })()
+        : undefined
     })
   }
 
