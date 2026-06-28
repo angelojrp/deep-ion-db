@@ -108,7 +108,10 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
-        <h1 className="brand">Deep Ion DB</h1>
+        <h1 className="brand">
+          <img className="brand-logo" src="/icon.png" alt="" width={22} height={22} />
+          Deep Ion DB
+        </h1>
         <span className="head-actions">
           <button
             className="icon-btn"
