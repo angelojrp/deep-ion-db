@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deepion-server
+  namespace: deep-ion-db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: deepion-server
+  template:
+    metadata:
+      labels:
+        app: deepion-server
+    spec:
+      containers:
+        - name: server
+          # Substitua pela sua imagem publicada (ex.: ghcr.io/angelojrp/deep-ion-db-server:0.2.0)
+          image: deep-ion-db-server:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4000
+          env:
+            - name: PORT
+              value: '4000'
+            - name: META_DATABASE_URL
+              valueFrom:
+                secretKeyRef: { name: deepion-meta, key: META_DATABASE_URL }
+          readinessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: 4000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: '1'
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: deepion-server
+  namespace: deep-ion-db
+spec:
+  selector:
+    app: deepion-server
+  ports:
+    - port: 80
+      targetPort: 4000
