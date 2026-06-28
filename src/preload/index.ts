@@ -63,6 +63,7 @@ const api: AppApi = {
   ai: {
     getConfig: () => ipcRenderer.invoke('ai:getConfig'),
     setConfig: (input: AiSettingsInput) => ipcRenderer.invoke('ai:setConfig', input),
+    setConsent: () => ipcRenderer.invoke('ai:setConsent'),
     chat: (messages: AiChatMessage[], system?: string) =>
       ipcRenderer.invoke('ai:chat', messages, system)
   }

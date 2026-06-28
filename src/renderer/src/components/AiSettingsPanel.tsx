@@ -26,6 +26,8 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [hasKey, setHasKey] = useState(false)
+  const [sendSchema, setSendSchema] = useState(true)
+  const [sendExplain, setSendExplain] = useState(true)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const api = useApi()
@@ -39,6 +41,8 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
           setModel(c.model)
           setBaseUrl(c.baseUrl ?? '')
           setHasKey(c.hasKey)
+          setSendSchema(c.sendSchema)
+          setSendExplain(c.sendExplain)
         }
       })
       .catch(() => {})
@@ -60,7 +64,9 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
         kind,
         model,
         baseUrl: baseUrl || undefined,
-        apiKey: apiKey || undefined
+        apiKey: apiKey || undefined,
+        sendSchema,
+        sendExplain
       })
       setHasKey(c.hasKey)
       setApiKey('')
@@ -149,6 +155,34 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
               placeholder={hasKey ? '•••••• (deixe em branco para manter)' : 'cole a chave aqui'}
             />
           </label>
+          <fieldset style={{ border: 'none', padding: 0, margin: '8px 0 0' }}>
+            <legend style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
+              Privacidade — contexto enviado à IA
+            </legend>
+            <label
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <input
+                type="checkbox"
+                checked={sendSchema}
+                onChange={(e) => setSendSchema(e.target.checked)}
+              />
+              Enviar schema/DDL como contexto
+            </label>
+            <label
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+            >
+              <input
+                type="checkbox"
+                checked={sendExplain}
+                onChange={(e) => setSendExplain(e.target.checked)}
+              />
+              Enviar plano de EXPLAIN como contexto
+            </label>
+            <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+              Nunca são enviadas linhas/dados das suas tabelas — apenas estrutura e metadados.
+            </p>
+          </fieldset>
           <button type="submit">Salvar</button>
           {saved && <p className="muted">Salvo ✓</p>}
           {err && <p className="form-error">{err}</p>}
