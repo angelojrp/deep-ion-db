@@ -114,4 +114,19 @@ export async function saveAs(defaultName: string, content: string): Promise<stri
   return res.filePath
 }
 
+export async function openTextFile(): Promise<{ name: string; content: string } | null> {
+  const res = await dialog.showOpenDialog({
+    title: 'Abrir arquivo',
+    properties: ['openFile'],
+    filters: [
+      { name: 'CSV', extensions: ['csv'] },
+      { name: 'Texto', extensions: ['txt', 'sql', 'md'] },
+      { name: 'Todos', extensions: ['*'] }
+    ]
+  })
+  if (res.canceled || !res.filePaths[0]) return null
+  const p = res.filePaths[0]
+  return { name: basename(p), content: readFileSync(p, 'utf-8') }
+}
+
 export { basename }

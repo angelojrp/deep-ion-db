@@ -137,6 +137,7 @@ export interface WsApi {
   create(dir: string, name: string): Promise<WsEntry>
   remove(path: string): Promise<void>
   saveAs(defaultName: string, content: string): Promise<string | null>
+  openFile(): Promise<{ name: string; content: string } | null>
 }
 
 /** Entrada do histórico de execução de queries. */

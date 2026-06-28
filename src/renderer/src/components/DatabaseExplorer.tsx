@@ -7,6 +7,7 @@ import type {
   SchemaTable
 } from '@shared/types'
 import { seedSystem, stripCodeFences } from '@ai/features'
+import { parseCsv } from '../csv'
 
 interface DataSource {
   id: string
@@ -241,6 +242,44 @@ function TableNode({
   const qualified = kind === 'sqlite' ? table.name : `${table.schema}.${table.name}`
   const isView = /view/i.test(table.type)
 
+  async function importCsv(): Promise<void> {
+    const file = await window.api.ws.openFile()
+    if (!file) return
+    const rows = parseCsv(file.content)
+    if (rows.length < 2) {
+      window.alert('CSV vazio ou só com cabeçalho.')
+      return
+    }
+    const headers = rows[0]
+    const cols = await window.api.db.listColumns(connId, table.schema, table.name)
+    const names = new Set(cols.map((c) => c.name))
+    const used = headers.map((h, i) => ({ h, i })).filter((x) => names.has(x.h))
+    if (!used.length) {
+      window.alert('Nenhum cabeçalho do CSV corresponde às colunas da tabela.')
+      return
+    }
+    const qi = (id: string): string =>
+      kind === 'mysql' ? '`' + id.replace(/`/g, '``') + '`' : '"' + id.replace(/"/g, '""') + '"'
+    const tableQ =
+      kind === 'sqlite' || table.schema === 'main'
+        ? qi(table.name)
+        : `${qi(table.schema)}.${qi(table.name)}`
+    const colList = used.map((x) => qi(x.h)).join(', ')
+    const statements = rows.slice(1).map((r) => {
+      const vals = used.map((_, j) => (kind === 'postgres' ? `$${j + 1}` : '?')).join(', ')
+      return {
+        sql: `INSERT INTO ${tableQ} (${colList}) VALUES (${vals})`,
+        params: used.map((x) => r[x.i] ?? null)
+      }
+    })
+    try {
+      await window.api.db.execBatch(connId, statements)
+      window.alert(`Importadas ${statements.length} linha(s) em ${qualified}.`)
+    } catch (e) {
+      window.alert('Erro ao importar: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
   async function toggle(): Promise<void> {
     if (!expanded && !cols) {
       setLoading(true)
@@ -312,6 +351,9 @@ function TableNode({
             }}
           >
             🌱
+          </button>
+          <button className="link" title="Importar CSV" onClick={importCsv}>
+            📥
           </button>
         </span>
       </div>
