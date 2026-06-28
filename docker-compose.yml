@@ -1,6 +1,22 @@
 # Ambiente web empresarial do Deep Ion DB (épico #53).
-# Sobe o backend + um PostgreSQL de metadados. `docker compose up -d`
+# Sobe o backend + PostgreSQL de metadados + Keycloak (SSO) + bancos de teste.
+#
+# Uso rápido:
+#   docker compose up -d
+#
+# Para ativar SSO (Keycloak), adicione ao .env:
+#   AUTH_DISABLED=false
+#   OIDC_ISSUER=http://localhost:8080/realms/deepion
+#   OIDC_AUDIENCE=deep-ion-db
+#   OIDC_JWKS_URI=http://keycloak:8080/realms/deepion/protocol/openid-connect/certs
+#
+# Keycloak admin: http://localhost:8080  (admin / admin)
+# Usuários de teste pré-criados via realm-import:
+#   admin@deepion.local / Admin123!  (papel: admin)
+#   user@deepion.local  / User123!   (papel: user)
+
 services:
+  # ── Metadados do Deep Ion ──────────────────────────────────────────────────
   meta:
     image: postgres:16
     environment:
@@ -16,6 +32,7 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ── Backend Fastify ────────────────────────────────────────────────────────
   server:
     build: .
     image: deep-ion-db-server:latest
@@ -23,11 +40,10 @@ services:
       PORT: 4000
       META_DATABASE_URL: postgres://${META_DB_USER:-deepion}:${META_DB_PASSWORD:-deepion}@meta:5432/${META_DB_NAME:-deepion_meta}
       META_ENCRYPTION_KEY: ${META_ENCRYPTION_KEY:-dev-insecure-key-change-me}
-      # Auth: para self-host pessoal, AUTH_DISABLED=true. Em produção, configure OIDC e use false.
       AUTH_DISABLED: ${AUTH_DISABLED:-true}
-      OIDC_ISSUER: ${OIDC_ISSUER:-}
-      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
-      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-}
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://keycloak:8080/realms/deepion}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-deep-ion-db}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-http://keycloak:8080/realms/deepion/protocol/openid-connect/certs}
     ports:
       - '${SERVER_PORT:-4000}:4000'
     depends_on:
@@ -35,5 +51,69 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── Keycloak (SSO / OIDC) ─────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_HTTP_PORT: 8080
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HOSTNAME_STRICT_HTTPS: 'false'
+    ports:
+      - '${KEYCLOAK_PORT:-8080}:8080'
+    volumes:
+      - ./keycloak/realm-import.json:/opt/keycloak/data/import/realm-import.json:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8080/realms/deepion || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── PostgreSQL de teste ────────────────────────────────────────────────────
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: testdb
+    ports:
+      - '${POSTGRES_TEST_PORT:-5433}:5432'
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+      - ./keycloak/seed/postgres-seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U testuser']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ── MySQL de teste ─────────────────────────────────────────────────────────
+  mysql-test:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: testuser
+      MYSQL_PASSWORD: testpass
+      MYSQL_DATABASE: testdb
+    ports:
+      - '${MYSQL_TEST_PORT:-3307}:3306'
+    volumes:
+      - mysql-test-data:/var/lib/mysql
+      - ./keycloak/seed/mysql-seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'testuser', '-ptestpass']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+
 volumes:
   meta-data:
+  postgres-test-data:
+  mysql-test-data:

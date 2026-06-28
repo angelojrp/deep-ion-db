@@ -5,6 +5,7 @@ import type {
   AppApi,
   ConnectionConfig,
   HistoryInput,
+  ServerAuthApi,
   SqlStatement
 } from '@shared/types'
 
@@ -67,4 +68,17 @@ const api: AppApi = {
   }
 }
 
+// Modo servidor (#123): ponte de autenticação/sessões para o thin client.
+const serverAuth: ServerAuthApi = {
+  config: (serverUrl: string) => ipcRenderer.invoke('server:config', serverUrl),
+  login: (serverUrl: string) => ipcRenderer.invoke('server:login', serverUrl),
+  token: (serverUrl: string) => ipcRenderer.invoke('server:token', serverUrl),
+  logout: (serverUrl: string) => ipcRenderer.invoke('server:logout', serverUrl),
+  listSessions: () => ipcRenderer.invoke('server:listSessions'),
+  saveSession: (label: string, serverUrl: string) =>
+    ipcRenderer.invoke('server:saveSession', label, serverUrl),
+  removeSession: (id: string) => ipcRenderer.invoke('server:removeSession', id)
+}
+
 contextBridge.exposeInMainWorld('api', api)
+contextBridge.exposeInMainWorld('serverAuth', serverAuth)
