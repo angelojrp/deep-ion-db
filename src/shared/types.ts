@@ -237,6 +237,16 @@ export interface AiApi {
   chat(messages: AiChatMessage[], system?: string): Promise<string>
   /** Registra o aceite do aviso de privacidade para o provedor cloud atual. */
   setConsent(): Promise<AIPublicConfig>
+  /** Inicia streaming; tokens chegam via `onToken`. */
+  stream(messages: AiChatMessage[], system?: string): Promise<void>
+  /** Cancela o streaming em andamento. */
+  cancelStream(): Promise<void>
+  /** Registra callback para tokens recebidos; retorna função de limpeza. */
+  onToken(cb: (token: string) => void): () => void
+  /** Registra callback de conclusão do streaming; retorna função de limpeza. */
+  onStreamDone(cb: () => void): () => void
+  /** Registra callback de erro do streaming; retorna função de limpeza. */
+  onStreamError(cb: (msg: string) => void): () => void
 }
 
 export interface AppApi {

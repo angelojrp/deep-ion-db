@@ -92,6 +92,26 @@ export function registerDbIpc(): void {
     ai.chat(messages, system)
   )
 
+  // Streaming incremental (issue #143).
+  ipcMain.handle('ai:stream', async (event, messages: AiChatMessage[], system?: string) => {
+    try {
+      await ai.chatStream(
+        messages,
+        (token) => {
+          if (!event.sender.isDestroyed()) event.sender.send('ai:token', token)
+        },
+        system
+      )
+      if (!event.sender.isDestroyed()) event.sender.send('ai:done')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!event.sender.isDestroyed()) event.sender.send('ai:error', msg)
+    }
+  })
+  ipcMain.handle('ai:cancelStream', () => {
+    ai.cancelStream()
+  })
+
   // Histórico de queries.
   ipcMain.handle('hist:list', () => history.list())
   ipcMain.handle('hist:add', (_e, entry: HistoryInput) => history.add(entry))

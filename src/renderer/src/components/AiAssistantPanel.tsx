@@ -110,12 +110,17 @@ export default function AiAssistantPanel({
   const [input, setInput] = useState('')
   const [turns, setTurns] = useState<Turn[]>([])
   const [busy, setBusy] = useState(false)
+  const [streaming, setStreaming] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [aiConfig, setAiConfig] = useState<AIPublicConfig | null>(null)
   const [showConsent, setShowConsent] = useState(false)
   /** Ação pendente enquanto o modal de consentimento está aberto. */
   const pendingAction = useRef<(() => Promise<void>) | null>(null)
   const api = useApi()
+  /** Indica se o provedor tem suporte a chatStream via IPC. */
+  const supportsStream = typeof api.ai.stream === 'function'
+  /** Índice do turn sendo construído incrementalmente, ou -1 quando não há stream. */
+  const streamingTurnRef = useRef<number>(-1)
 
   useEffect(() => {
     if (!connectionId) return
@@ -169,7 +174,85 @@ export default function AiAssistantPanel({
     pendingAction.current = null
   }
 
+  const runStream = useCallback(
+    async (system: string, messages: AiChatMessage[], asSql: boolean): Promise<void> => {
+      setBusy(true)
+      setStreaming(true)
+      setErr(null)
+
+      // Insere turn vazio que será preenchido incrementalmente.
+      setTurns((prev) => {
+        streamingTurnRef.current = prev.length
+        return [...prev, { role: 'assistant', text: '', isSql: asSql }]
+      })
+
+      const cleanups: (() => void)[] = []
+
+      cleanups.push(
+        api.ai.onToken((token) => {
+          setTurns((prev) => {
+            const idx = streamingTurnRef.current
+            if (idx < 0 || idx >= prev.length) return prev
+            const updated = [...prev]
+            updated[idx] = { ...updated[idx], text: updated[idx].text + token }
+            return updated
+          })
+        })
+      )
+
+      cleanups.push(
+        api.ai.onStreamDone(() => {
+          // Aplica stripCodeFences se for SQL ao finalizar.
+          if (asSql) {
+            setTurns((prev) => {
+              const idx = streamingTurnRef.current
+              if (idx < 0 || idx >= prev.length) return prev
+              const updated = [...prev]
+              updated[idx] = { ...updated[idx], text: stripCodeFences(updated[idx].text) }
+              return updated
+            })
+          }
+          streamingTurnRef.current = -1
+          setBusy(false)
+          setStreaming(false)
+          cleanups.forEach((fn) => fn())
+        })
+      )
+
+      cleanups.push(
+        api.ai.onStreamError((msg) => {
+          // Remove o turn vazio inserido em caso de erro.
+          setTurns((prev) => {
+            const idx = streamingTurnRef.current
+            if (idx < 0 || idx >= prev.length) return prev
+            return prev.filter((_, i) => i !== idx)
+          })
+          streamingTurnRef.current = -1
+          setErr(msg)
+          setBusy(false)
+          setStreaming(false)
+          cleanups.forEach((fn) => fn())
+        })
+      )
+
+      // Dispara o stream (resultado real chega via eventos ai:token/ai:done/ai:error).
+      api.ai.stream(messages, system).catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        setErr(msg)
+        setBusy(false)
+        setStreaming(false)
+        streamingTurnRef.current = -1
+        cleanups.forEach((fn) => fn())
+      })
+    },
+    [api]
+  )
+
   async function run(system: string, messages: AiChatMessage[], asSql: boolean): Promise<void> {
+    if (supportsStream) {
+      await runStream(system, messages, asSql)
+      return
+    }
     setBusy(true)
     setErr(null)
     try {
@@ -183,6 +266,10 @@ export default function AiAssistantPanel({
     } finally {
       setBusy(false)
     }
+  }
+
+  function stopStream(): void {
+    api.ai.cancelStream().catch(() => {})
   }
 
   async function send(): Promise<void> {
@@ -403,7 +490,7 @@ export default function AiAssistantPanel({
                 )}
               </div>
             ))}
-            {busy && <div className="explorer-empty">pensando…</div>}
+            {busy && !streaming && <div className="explorer-empty">pensando…</div>}
             {err && <pre className="error">{err}</pre>}
           </div>
 
@@ -421,9 +508,15 @@ export default function AiAssistantPanel({
                 }
               }}
             />
-            <button onClick={send} disabled={busy || !input.trim()}>
-              Enviar
-            </button>
+            {streaming ? (
+              <button onClick={stopStream} className="danger-btn">
+                Parar
+              </button>
+            ) : (
+              <button onClick={send} disabled={busy || !input.trim()}>
+                Enviar
+              </button>
+            )}
           </div>
         </div>
       </div>

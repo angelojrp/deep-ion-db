@@ -167,6 +167,11 @@ export const httpApi: AppApi = {
     getConfig: async () => null,
     setConfig: async () => unsupported('configuração de IA'),
     setConsent: async () => unsupported('configuração de IA'),
-    chat: async () => unsupported('IA')
+    chat: async () => unsupported('IA'),
+    stream: async () => unsupported('IA streaming'),
+    cancelStream: async () => {},
+    onToken: () => () => {},
+    onStreamDone: () => () => {},
+    onStreamError: () => () => {}
   }
 }
