@@ -39,6 +39,7 @@ export function registerDbIpc(): void {
   )
   ipcMain.handle('db:listRoles', (_e, id: string) => manager.listRoles(id))
   ipcMain.handle('db:serverHealth', (_e, id: string) => manager.serverHealth(id))
+  ipcMain.handle('db:foreignKeys', (_e, id: string) => manager.foreignKeys(id))
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

@@ -3,6 +3,7 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
   QueryResult,
   RoleInfo,
@@ -126,6 +127,21 @@ export class PostgresDriver implements Driver {
         value: await one("select date_trunc('second', now()-pg_postmaster_start_time())::text v")
       }
     ]
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const res = await this.client.query(
+      `select tc.table_name as "table", kcu.column_name as "column",
+              ccu.table_name as "refTable", ccu.column_name as "refColumn"
+         from information_schema.table_constraints tc
+         join information_schema.key_column_usage kcu
+           on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema
+         join information_schema.constraint_column_usage ccu
+           on ccu.constraint_name = tc.constraint_name
+        where tc.constraint_type = 'FOREIGN KEY'
+          and tc.table_schema not in ('pg_catalog', 'information_schema')`
+    )
+    return res.rows as ForeignKey[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {
