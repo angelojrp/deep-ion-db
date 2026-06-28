@@ -2,6 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import { PostgresDriver } from '../../src/main/db/drivers/postgres'
 import type { ConnectionConfig } from '../../src/shared/types'
+import { metaConfigured, metaStatus, migrate } from './meta'
 
 /**
  * Backend web (MVP do épico #53) — reaproveita a camada de drivers do app desktop.
@@ -41,6 +42,20 @@ async function main(): Promise<void> {
     version: '0.0.1'
   }))
 
+  app.get('/api/meta/status', async (_req, reply) => {
+    if (!metaConfigured()) return { configured: false }
+    try {
+      return { configured: true, ...(await metaStatus()) }
+    } catch (e) {
+      reply.code(503)
+      return {
+        configured: true,
+        connected: false,
+        error: e instanceof Error ? e.message : String(e)
+      }
+    }
+  })
+
   app.post<{ Body: { config: PgConnInput } }>('/api/test-connection', async (req, reply) => {
     try {
       await withDriver(req.body.config, async (d) => d.query('select 1'))
@@ -68,6 +83,15 @@ async function main(): Promise<void> {
       return { error: e instanceof Error ? e.message : String(e) }
     }
   })
+
+  if (metaConfigured()) {
+    try {
+      await migrate()
+      app.log.info('Metadados: schema migrado.')
+    } catch (e) {
+      app.log.error({ err: e }, 'Falha ao migrar metadados (seguindo mesmo assim).')
+    }
+  }
 
   const port = Number(process.env.PORT ?? 4000)
   await app.listen({ port, host: '0.0.0.0' })
