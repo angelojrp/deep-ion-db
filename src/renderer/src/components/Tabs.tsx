@@ -12,9 +12,17 @@ interface Props {
   onSelect: (id: string) => void
   onClose: (id: string) => void
   onNew: () => void
+  onFeedback?: () => void
 }
 
-export default function Tabs({ tabs, activeId, onSelect, onClose, onNew }: Props): JSX.Element {
+export default function Tabs({
+  tabs,
+  activeId,
+  onSelect,
+  onClose,
+  onNew,
+  onFeedback
+}: Props): JSX.Element {
   return (
     <div className="tabs">
       {tabs.map((t) => (
@@ -43,6 +51,15 @@ export default function Tabs({ tabs, activeId, onSelect, onClose, onNew }: Props
       <button className="tab-new" title="Nova aba" onClick={onNew}>
         ＋
       </button>
+      {onFeedback && (
+        <button
+          className="tab-feedback"
+          title="Enviar feedback ou sugerir melhoria"
+          onClick={onFeedback}
+        >
+          Feedback
+        </button>
+      )}
     </div>
   )
 }
