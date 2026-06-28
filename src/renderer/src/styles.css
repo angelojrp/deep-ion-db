@@ -11,6 +11,19 @@
   --null: #6a9955;
 }
 
+:root[data-theme='light'] {
+  --bg: #f6f7f9;
+  --bg-alt: #ffffff;
+  --bg-elev: #eceef1;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-dim: #656d76;
+  --accent: #0969da;
+  --accent-hover: #0a64c8;
+  --error: #cf222e;
+  --null: #0a7a2f;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -107,6 +107,15 @@ export default function App(): JSX.Element {
   const [showHealth, setShowHealth] = useState(false)
   const [showAi, setShowAi] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
+  const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -388,6 +397,8 @@ export default function App(): JSX.Element {
         onOpenFile={openFile}
         onNewFile={newFile}
         onDeleteFile={deleteFile}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
       />
 
       <main className="workspace">
@@ -405,6 +416,7 @@ export default function App(): JSX.Element {
             value={activeTab.content}
             onChange={onContentChange}
             onSave={saveActive}
+            theme={monacoTheme}
           />
         ) : (
           <div className="sql-pane">
@@ -503,6 +515,7 @@ export default function App(): JSX.Element {
                   onRun={runQuery}
                   onSave={saveActive}
                   dialect={activeConn?.kind}
+                  theme={monacoTheme}
                   apiRef={editorApi}
                 />
               )}

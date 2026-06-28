@@ -16,6 +16,7 @@ interface Props {
   onRun: () => void
   onSave?: () => void
   dialect?: DbKind
+  theme?: string
   apiRef?: MutableRefObject<SqlEditorApi | null>
 }
 
@@ -44,6 +45,7 @@ export default function SqlEditor({
   onRun,
   onSave,
   dialect,
+  theme = 'vs-dark',
   apiRef
 }: Props): JSX.Element {
   const onRunRef = useRef(onRun)
@@ -89,7 +91,7 @@ export default function SqlEditor({
     <Editor
       height="100%"
       language="sql"
-      theme="vs-dark"
+      theme={theme}
       value={value}
       onChange={(v) => onChange(v ?? '')}
       onMount={handleMount}
