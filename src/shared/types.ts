@@ -20,6 +20,8 @@ export interface ConnectionConfig {
    * pois desabilita a verificação do certificado do servidor.
    */
   sslRejectUnauthorized?: boolean
+  /** Timeout de execução de query em milissegundos (padrão: 30 000). */
+  queryTimeoutMs?: number
 }
 
 export interface QueryResult {
