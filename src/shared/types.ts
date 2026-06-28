@@ -83,6 +83,13 @@ export interface RoutineInfo {
   type: string
 }
 
+export interface JobInfo {
+  name: string
+  schedule?: string
+  command?: string
+  enabled?: boolean
+}
+
 /** Chave estrangeira (para diagrama ER). */
 export interface ForeignKey {
   table: string
@@ -125,6 +132,7 @@ export interface DbApi {
   foreignKeys(id: string): Promise<ForeignKey[]>
   indexes(id: string, schema: string, table: string): Promise<IndexInfo[]>
   routines(id: string, schema: string): Promise<RoutineInfo[]>
+  jobs(id: string): Promise<JobInfo[]>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

@@ -6,6 +6,7 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
   RoutineInfo,
@@ -144,6 +145,17 @@ export class PostgresDriver implements Driver {
           and tc.table_schema not in ('pg_catalog', 'information_schema')`
     )
     return res.rows as ForeignKey[]
+  }
+
+  async jobs(): Promise<JobInfo[]> {
+    try {
+      const res = await this.client.query(
+        `select jobname as name, schedule, command, active as enabled from cron.job order by jobname`
+      )
+      return res.rows as JobInfo[]
+    } catch {
+      return [] // pg_cron não instalado
+    }
   }
 
   async indexes(schema: string, table: string): Promise<IndexInfo[]> {

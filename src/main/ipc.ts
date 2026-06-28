@@ -44,6 +44,7 @@ export function registerDbIpc(): void {
     manager.indexes(id, schema, table)
   )
   ipcMain.handle('db:routines', (_e, id: string, schema: string) => manager.routines(id, schema))
+  ipcMain.handle('db:jobs', (_e, id: string) => manager.jobs(id))
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

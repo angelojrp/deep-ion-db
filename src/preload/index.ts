@@ -30,7 +30,8 @@ const api: AppApi = {
     foreignKeys: (id: string) => ipcRenderer.invoke('db:foreignKeys', id),
     indexes: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:indexes', id, schema, table),
-    routines: (id: string, schema: string) => ipcRenderer.invoke('db:routines', id, schema)
+    routines: (id: string, schema: string) => ipcRenderer.invoke('db:routines', id, schema),
+    jobs: (id: string) => ipcRenderer.invoke('db:jobs', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

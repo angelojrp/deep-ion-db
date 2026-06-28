@@ -4,6 +4,7 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
+  JobInfo,
   RoleInfo,
   RoutineInfo,
   SessionInfo,
@@ -18,6 +19,7 @@ export type {
   HistoryEntry,
   HistoryInput,
   IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
   RoutineInfo,
@@ -46,4 +48,5 @@ export interface Driver {
   foreignKeys(): Promise<ForeignKey[]>
   indexes(schema: string, table: string): Promise<IndexInfo[]>
   routines(schema: string): Promise<RoutineInfo[]>
+  jobs(): Promise<JobInfo[]>
 }

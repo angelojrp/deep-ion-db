@@ -6,6 +6,7 @@ import type {
   ForeignKey,
   HealthMetric,
   IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
   RoutineInfo,
@@ -99,6 +100,10 @@ export class SqliteDriver implements Driver {
   }
 
   async routines(): Promise<RoutineInfo[]> {
+    return []
+  }
+
+  async jobs(): Promise<JobInfo[]> {
     return []
   }
 
