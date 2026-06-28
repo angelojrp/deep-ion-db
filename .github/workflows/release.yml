@@ -41,8 +41,16 @@ jobs:
       - name: Build installers
         run: npm run build && npx --no-install electron-builder ${{ matrix.platform }} --publish never
         env:
-          # Sem certificado: evita o electron-builder tentar assinar no macOS.
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Certificado de assinatura (Windows .pfx / macOS .p12) — base64 e senha.
+          # Ver docs/CODESIGN.md. Quando ausentes, a assinatura é ignorada.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Notarização Apple (macOS).
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Só tenta assinar/descobrir identidade quando há certificado configurado.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
 
       - name: Upload installers as artifacts
         uses: actions/upload-artifact@v4

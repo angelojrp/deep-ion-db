@@ -46,6 +46,13 @@ mac:
     - zip
   category: public.app-category.developer-tools
   artifactName: ${productName}-${version}-macOS-${arch}.${ext}
+  # Assinatura/notarização (ver docs/CODESIGN.md). Só executam quando há
+  # certificado (CSC_LINK) e credenciais Apple (APPLE_ID/...) no ambiente.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
 
 linux:
   icon: build/icon.png
