@@ -6,7 +6,9 @@ import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
 import * as ai from './aiSettings'
 import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
-import type { AiChatMessage, AiSettingsInput } from '@shared/types'
+import type { AiChatMessage, AiSettingsInput, QueryResult } from '@shared/types'
+
+const ROW_LIMIT = 10_000
 
 const manager = new DbManager()
 const store = new ConnectionStore()
@@ -20,7 +22,20 @@ export function registerDbIpc(): void {
 
   ipcMain.handle('db:connect', (_e, config: ConnectionConfig) => manager.connect(config))
   ipcMain.handle('db:disconnect', (_e, id: string) => manager.disconnect(id))
-  ipcMain.handle('db:query', (_e, id: string, sql: string) => manager.query(id, sql))
+  ipcMain.handle('db:query', async (_e, id: string, sql: string): Promise<QueryResult> => {
+    const result = await manager.query(id, sql)
+    if (result.rows.length > ROW_LIMIT) {
+      const totalRows = result.rows.length
+      return {
+        ...result,
+        rows: result.rows.slice(0, ROW_LIMIT),
+        rowCount: ROW_LIMIT,
+        truncated: true,
+        totalRows
+      }
+    }
+    return result
+  })
   ipcMain.handle('db:listTables', (_e, id: string) => manager.listTables(id))
   ipcMain.handle('db:listColumns', (_e, id: string, schema: string, table: string) =>
     manager.listColumns(id, schema, table)
