@@ -11,12 +11,23 @@ import {
   getDataSourceConfig,
   listDataSources,
   loadDataSource,
-  type DataSourceInput
+  updateDataSource,
+  type DataSourceInput,
+  type DataSourceUpdateInput
 } from './dataSources'
 import { vaultUsingDefaultKey } from './vault'
 import { type AuthUser, authDisabled, devUser, upsertUser, verifyToken } from './auth'
-import { createGrant, deleteGrant, getGrantMode, isReadOnlySql, listGrants } from './grants'
-import { audit, listAudit } from './audit'
+import {
+  createGrant,
+  deleteGrant,
+  getGrantMode,
+  isReadOnlySql,
+  listGrants,
+  updateGrant,
+  type GrantUpdate
+} from './grants'
+import { audit, auditToCsv, listAudit, type AuditFilters } from './audit'
+import { listUsers, updateUserRole, deleteUser, listUserGrants } from './users'
 import {
   MAX_SESSIONS_PER_USER,
   STATEMENT_TIMEOUT_MS,
@@ -33,11 +44,7 @@ declare module 'fastify' {
   }
 }
 
-/**
- * Backend web (MVP do épico #53) — reaproveita a camada de drivers do app desktop.
- * Corte fino: PostgreSQL. Auth/data sources/grants entram nas issues seguintes (#56/#59/#60).
- * AVISO: endpoints ainda sem autenticação — uso interno/dev até o OIDC (#56).
- */
+/** Backend web (épico #53) — reaproveita a camada de drivers do app desktop. */
 
 type PgConnInput = Pick<
   ConnectionConfig,
@@ -94,7 +101,6 @@ async function main(): Promise<void> {
   })
 
   // Config pública de auth (#106): a UI usa para iniciar o login OIDC (Auth Code + PKCE).
-  // `audience` é usado como client_id no IdP. Não expõe segredos.
   app.get('/api/auth/config', async () => ({
     authDisabled: authDisabled(),
     issuer: process.env.OIDC_ISSUER ?? null,
@@ -117,7 +123,12 @@ async function main(): Promise<void> {
     }
   })
 
+  // ----- Endpoints ad-hoc (issue #120): exigem role admin) -----
   app.post<{ Body: { config: PgConnInput } }>('/api/test-connection', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
     try {
       await withDriver(req.body.config, async (d) => d.query('select 1'))
       return { ok: true }
@@ -128,6 +139,10 @@ async function main(): Promise<void> {
   })
 
   app.post<{ Body: { config: PgConnInput; sql: string } }>('/api/query', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
     try {
       return await withDriver(req.body.config, (d) => d.query(req.body.sql))
     } catch (e) {
@@ -137,6 +152,10 @@ async function main(): Promise<void> {
   })
 
   app.post<{ Body: { config: PgConnInput } }>('/api/tables', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
     try {
       return await withDriver(req.body.config, (d) => d.listTables())
     } catch (e) {
@@ -162,6 +181,27 @@ async function main(): Promise<void> {
     return ds
   })
 
+  // PATCH /api/data-sources/:id — editar data source sem deletar (issue #116)
+  app.patch<{ Params: { id: string }; Body: DataSourceUpdateInput }>(
+    '/api/data-sources/:id',
+    async (req, reply) => {
+      if (req.user?.role !== 'admin') {
+        reply.code(403)
+        return { error: 'requer papel admin' }
+      }
+      const updated = await updateDataSource(req.params.id, req.body)
+      if (!updated) {
+        reply.code(404)
+        return { error: 'data source não encontrado' }
+      }
+      // Registra diff sem expor senha
+      const diffBody: Record<string, unknown> = { ...req.body }
+      delete diffBody['password']
+      await audit(req.user.id, req.params.id, 'data_source.update', diffBody)
+      return updated
+    }
+  )
+
   app.delete<{ Params: { id: string } }>('/api/data-sources/:id', async (req, reply) => {
     if (req.user?.role !== 'admin') {
       reply.code(403)
@@ -172,7 +212,65 @@ async function main(): Promise<void> {
     return { ok: true }
   })
 
-  // ----- Grants (#60) -----
+  // ----- Usuários (#118) -----
+  app.get('/api/users', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
+    return { users: await listUsers() }
+  })
+
+  app.patch<{ Params: { id: string }; Body: { role: string } }>(
+    '/api/users/:id',
+    async (req, reply) => {
+      if (req.user?.role !== 'admin') {
+        reply.code(403)
+        return { error: 'requer papel admin' }
+      }
+      if (req.params.id === req.user.id) {
+        reply.code(400)
+        return { error: 'não é possível alterar o próprio papel' }
+      }
+      const updated = await updateUserRole(req.params.id, req.body.role)
+      if (!updated) {
+        reply.code(404)
+        return { error: 'usuário não encontrado' }
+      }
+      await audit(req.user.id, null, 'user.role_changed', {
+        userId: req.params.id,
+        role: req.body.role
+      })
+      return updated
+    }
+  )
+
+  app.delete<{ Params: { id: string } }>('/api/users/:id', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
+    if (req.params.id === req.user.id) {
+      reply.code(400)
+      return { error: 'não é possível remover o próprio usuário' }
+    }
+    const { grantIds } = await deleteUser(req.params.id)
+    await audit(req.user.id, null, 'user.deleted', {
+      userId: req.params.id,
+      revokedGrants: grantIds
+    })
+    return { ok: true }
+  })
+
+  app.get<{ Params: { id: string } }>('/api/users/:id/grants', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
+    return { grants: await listUserGrants(req.params.id) }
+  })
+
+  // ----- Grants (#60, #121) -----
   app.get('/api/grants', async (req) => {
     const all = req.user?.role === 'admin'
     return { grants: await listGrants(all ? undefined : req.user?.id) }
@@ -194,12 +292,34 @@ async function main(): Promise<void> {
     }
   )
 
+  // PATCH /api/grants/:id — atualizar modo, expiração, suspensão (issue #121)
+  app.patch<{ Params: { id: string }; Body: GrantUpdate }>(
+    '/api/grants/:id',
+    async (req, reply) => {
+      if (req.user?.role !== 'admin') {
+        reply.code(403)
+        return { error: 'requer papel admin' }
+      }
+      const updated = await updateGrant(req.params.id, req.body)
+      if (!updated) {
+        reply.code(404)
+        return { error: 'grant não encontrado' }
+      }
+      await audit(req.user.id, updated.data_source_id, 'grant.updated', {
+        grantId: req.params.id,
+        ...req.body
+      })
+      return updated
+    }
+  )
+
   app.delete<{ Params: { id: string } }>('/api/grants/:id', async (req, reply) => {
     if (req.user?.role !== 'admin') {
       reply.code(403)
       return { error: 'requer papel admin' }
     }
     await deleteGrant(req.params.id)
+    await audit(req.user.id, null, 'grant.deleted', { grantId: req.params.id })
     return { ok: true }
   })
 
@@ -219,7 +339,6 @@ async function main(): Promise<void> {
         reply.code(404)
         return { error: 'data source não encontrado' }
       }
-      // Política (#64): produção força somente-leitura.
       const mode = effectiveMode(grant, ds.environment)
       if (mode === 'read' && !isReadOnlySql(req.body.sql)) {
         await audit(user.id, req.params.id, 'query.denied', {
@@ -228,7 +347,6 @@ async function main(): Promise<void> {
         reply.code(403)
         return { error: 'somente-leitura: apenas SELECT/WITH/EXPLAIN' }
       }
-      // Limite de sessões por usuário (#65).
       if (!sessions.tryAcquire(user.id)) {
         reply.code(429)
         return { error: `limite de ${MAX_SESSIONS_PER_USER} execuções simultâneas atingido` }
@@ -280,7 +398,6 @@ async function main(): Promise<void> {
     }
   })
 
-  // Colunas de uma tabela (explorer da UI unificada).
   app.post<{ Params: { id: string }; Body: { schema: string; table: string } }>(
     '/api/data-sources/:id/columns',
     async (req, reply) => {
@@ -305,13 +422,33 @@ async function main(): Promise<void> {
     }
   )
 
-  // ----- Auditoria (#63) -----
-  app.get('/api/audit', async (req, reply) => {
+  // ----- Auditoria (#63, #119) — com filtros, paginação e export CSV -----
+  app.get<{ Querystring: AuditFilters & { export?: string } }>('/api/audit', async (req, reply) => {
     if (req.user?.role !== 'admin') {
       reply.code(403)
       return { error: 'requer papel admin' }
     }
-    return { entries: await listAudit() }
+    const { export: exp, ...filters } = req.query
+    if (exp === 'csv') {
+      // Export sem paginação: busca todas as entradas com os filtros aplicados
+      const { entries } = await listAudit({ ...filters, pageSize: 500, page: 1 })
+      // Iterar até buscar tudo (max 10k para segurança)
+      let all = entries
+      let pg = 2
+      while (all.length < 10_000 && entries.length === 500) {
+        const next = await listAudit({ ...filters, pageSize: 500, page: pg++ })
+        all = [...all, ...next.entries]
+        if (next.entries.length < 500) break
+      }
+      await reply.header('Content-Type', 'text/csv; charset=utf-8')
+      await reply.header('Content-Disposition', 'attachment; filename="audit.csv"')
+      return reply.send(auditToCsv(all))
+    }
+    return listAudit({
+      ...filters,
+      page: filters.page ? Number(filters.page) : 1,
+      pageSize: filters.pageSize ? Number(filters.pageSize) : 50
+    })
   })
 
   app.post<{ Params: { id: string } }>('/api/data-sources/:id/test', async (req, reply) => {
