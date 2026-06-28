@@ -5,6 +5,7 @@ import type {
   Driver,
   QueryResult,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -96,6 +97,25 @@ export class MysqlDriver implements Driver {
       await conn.rollback()
       throw e
     }
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    const [rows] = await this.connection.query(
+      `select id as pid, user, db as database, command as state, info as query, time * 1000 as durationMs
+         from information_schema.processlist order by time desc`
+    )
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      pid: r.pid as number,
+      user: (r.user as string) ?? null,
+      database: (r.database as string) ?? null,
+      state: (r.state as string) ?? null,
+      query: (r.query as string) ?? null,
+      durationMs: r.durationMs != null ? Number(r.durationMs) : null
+    }))
+  }
+
+  async killSession(pid: string | number): Promise<void> {
+    await this.connection.query(`KILL ${Number(pid)}`)
   }
 
   async tableDdl(schema: string, table: string): Promise<string> {

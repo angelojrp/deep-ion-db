@@ -14,7 +14,9 @@ const api: AppApi = {
     execBatch: (id: string, statements: SqlStatement[]) =>
       ipcRenderer.invoke('db:execBatch', id, statements),
     tableDdl: (id: string, schema: string, table: string) =>
-      ipcRenderer.invoke('db:tableDdl', id, schema, table)
+      ipcRenderer.invoke('db:tableDdl', id, schema, table),
+    activeSessions: (id: string) => ipcRenderer.invoke('db:activeSessions', id),
+    killSession: (id: string, pid: string | number) => ipcRenderer.invoke('db:killSession', id, pid)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

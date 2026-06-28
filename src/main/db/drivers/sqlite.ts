@@ -5,6 +5,7 @@ import type {
   Driver,
   QueryResult,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -73,6 +74,14 @@ export class SqliteDriver implements Driver {
       for (const s of items) this.handle.prepare(s.sql).run(...(s.params as never[]))
     })
     tx(statements)
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    return []
+  }
+
+  async killSession(): Promise<void> {
+    throw new Error('SQLite (arquivo local) não possui sessões.')
   }
 
   async tableDdl(_schema: string, table: string): Promise<string> {

@@ -1,6 +1,6 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
-import type { SqlStatement } from '@shared/types'
+import type { SessionInfo, SqlStatement } from '@shared/types'
 
 export type {
   ColumnInfo,
@@ -10,6 +10,7 @@ export type {
   QueryResult,
   SavedConnection,
   SchemaTable,
+  SessionInfo,
   SqlStatement,
   Workspace,
   WsEntry
@@ -25,4 +26,6 @@ export interface Driver {
   primaryKeys(schema: string, table: string): Promise<string[]>
   execBatch(statements: SqlStatement[]): Promise<void>
   tableDdl(schema: string, table: string): Promise<string>
+  activeSessions(): Promise<SessionInfo[]>
+  killSession(pid: string | number): Promise<void>
 }
