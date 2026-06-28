@@ -84,7 +84,7 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     ...opts,
     headers: {
-      'content-type': 'application/json',
+      ...(opts.body !== undefined ? { 'content-type': 'application/json' } : {}),
       ...(t ? { authorization: `Bearer ${t}` } : {}),
       ...(opts.headers ?? {})
     }
@@ -1068,9 +1068,11 @@ function AuditTab(): JSX.Element {
 
 interface Props {
   onBack: () => void
+  onLogout?: () => void
+  authDisabled?: boolean
 }
 
-export default function Admin({ onBack }: Props): JSX.Element {
+export default function Admin({ onBack, onLogout, authDisabled }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('data-sources')
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
@@ -1089,6 +1091,21 @@ export default function Admin({ onBack }: Props): JSX.Element {
         <div className="admin-heading">
           <h2>Painel de Administração</h2>
           <p className="admin-subtitle">Gerencie data sources, usuários, concessões e auditoria</p>
+        </div>
+        <div className="admin-header-actions">
+          {authDisabled && (
+            <span
+              className="auth-disabled-badge"
+              title="AUTH_DISABLED=true — sem autenticação OIDC"
+            >
+              ⚠ Modo dev
+            </span>
+          )}
+          {onLogout && (
+            <button className="logout-btn" onClick={onLogout} title="Encerrar sessão">
+              Sair
+            </button>
+          )}
         </div>
       </div>
       <div className="admin-tabs">

@@ -39,6 +39,8 @@ function Root(): JSX.Element {
   const [isAdmin, setIsAdmin] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
 
+  const authDisabled = cfg?.authDisabled ?? false
+
   useEffect(() => {
     void (async () => {
       const c = await fetchAuthConfig()
@@ -59,24 +61,49 @@ function Root(): JSX.Element {
     })()
   }, [])
 
+  function handleLogout() {
+    localStorage.removeItem('token')
+    setAuthed(false)
+    setIsAdmin(false)
+    setShowAdmin(false)
+  }
+
   if (!ready) return <div className="placeholder">Carregando…</div>
   if (!authed && cfg) return <Login cfg={cfg} onToken={() => setAuthed(true)} />
 
   if (showAdmin) {
-    return <Admin onBack={() => setShowAdmin(false)} />
+    return (
+      <Admin
+        onBack={() => setShowAdmin(false)}
+        onLogout={authDisabled ? undefined : handleLogout}
+        authDisabled={authDisabled}
+      />
+    )
   }
 
   return (
     <ApiProvider api={httpApi} caps={WEB_CAPABILITIES}>
-      {isAdmin && (
-        <button
-          className="admin-fab"
-          title="Painel de Administração"
-          onClick={() => setShowAdmin(true)}
-        >
-          ⚙ Admin
-        </button>
-      )}
+      <div className="web-topbar">
+        {authDisabled && (
+          <span className="auth-disabled-badge" title="AUTH_DISABLED=true — sem autenticação OIDC">
+            ⚠ Modo dev (sem auth)
+          </span>
+        )}
+        {isAdmin && (
+          <button
+            className="admin-fab"
+            title="Painel de Administração"
+            onClick={() => setShowAdmin(true)}
+          >
+            ⚙ Admin
+          </button>
+        )}
+        {!authDisabled && (
+          <button className="logout-btn" onClick={handleLogout} title="Sair">
+            Sair
+          </button>
+        )}
+      </div>
       <App />
     </ApiProvider>
   )
