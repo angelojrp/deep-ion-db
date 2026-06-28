@@ -13,11 +13,12 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
 COPY tsconfig.json tsconfig.node.json tsconfig.web.json ./
+COPY scripts ./scripts
 COPY src ./src
 COPY server ./server
 COPY web ./web
 
-# Builda o frontend web (gera web/public/app.js)
+# Builda o frontend web (gera web/public/app.js) — reaproveita a UI do desktop.
 RUN npm run web:build
 
 ENV PORT=4000
