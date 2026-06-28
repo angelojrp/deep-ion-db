@@ -177,10 +177,11 @@ export class MysqlDriver implements Driver {
     return (rows as Record<string, string>[]).map((r) => ({ name: r.name }))
   }
 
-  async routines(): Promise<RoutineInfo[]> {
+  async routines(schema: string): Promise<RoutineInfo[]> {
     const [rows] = await this.connection.query(
       `select routine_name as name, routine_type as type from information_schema.routines
-        where routine_schema = database() order by routine_name`
+        where routine_schema = ? order by routine_name`,
+      [schema]
     )
     return rows as RoutineInfo[]
   }
