@@ -26,6 +26,8 @@ interface Props {
   onOpenFile: (entry: WsEntry) => void
   onNewFile: (dir: string) => void
   onDeleteFile: (entry: WsEntry) => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
 }
 
 const DEFAULT_PORT: Record<DbKind, string> = {
@@ -49,7 +51,9 @@ export default function Sidebar({
   onRefreshWorkspace,
   onOpenFile,
   onNewFile,
-  onDeleteFile
+  onDeleteFile,
+  theme,
+  onToggleTheme
 }: Props): JSX.Element {
   const hasAny = connections.length > 0 || saved.length > 0
   const [showForm, setShowForm] = useState(!hasAny)
@@ -103,13 +107,22 @@ export default function Sidebar({
     <aside className="sidebar">
       <div className="sidebar-head">
         <h1 className="brand">Deep Ion DB</h1>
-        <button
-          className="icon-btn"
-          title={showForm ? 'Fechar' : 'Nova conexão'}
-          onClick={() => setShowForm((v) => !v)}
-        >
-          {showForm ? '×' : '＋'}
-        </button>
+        <span className="head-actions">
+          <button
+            className="icon-btn"
+            title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+            onClick={onToggleTheme}
+          >
+            {theme === 'dark' ? '☀' : '🌙'}
+          </button>
+          <button
+            className="icon-btn"
+            title={showForm ? 'Fechar' : 'Nova conexão'}
+            onClick={() => setShowForm((v) => !v)}
+          >
+            {showForm ? '×' : '＋'}
+          </button>
+        </span>
       </div>
 
       {showForm && (
