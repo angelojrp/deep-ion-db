@@ -173,5 +173,11 @@ export const httpApi: AppApi = {
     onToken: () => () => {},
     onStreamDone: () => () => {},
     onStreamError: () => () => {}
+  },
+  // MCP não disponível no modo web (servidor remoto); stub que retorna parado.
+  mcp: {
+    start: async () => unsupported('MCP'),
+    stop: async () => {},
+    status: async () => ({ running: false as const })
   }
 }

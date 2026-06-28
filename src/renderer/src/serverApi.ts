@@ -171,6 +171,8 @@ export function createServerApi(opts: ServerApiOptions): AppApi {
       onToken: () => () => {},
       onStreamDone: () => () => {},
       onStreamError: () => () => {}
-    }
+    },
+    // MCP: delega para a API desktop (IPC), disponível mesmo em modo servidor.
+    mcp: window.api.mcp
   }
 }

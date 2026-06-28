@@ -1,4 +1,4 @@
-import { type FormEvent, type JSX, useState } from 'react'
+import { type FormEvent, type JSX, useCallback, useEffect, useState } from 'react'
 import type {
   ConnectionConfig,
   ConnectionSummary,
@@ -9,7 +9,7 @@ import type {
 } from '@shared/types'
 import DatabaseExplorer from './DatabaseExplorer'
 import WorkspacePanel from './WorkspacePanel'
-import { useCaps } from '../api'
+import { useApi, useCaps } from '../api'
 import { useServerMode } from '../serverMode'
 
 interface Props {
@@ -40,6 +40,13 @@ const DEFAULT_PORT: Record<DbKind, string> = {
   oracle: '1521'
 }
 
+interface McpStatus {
+  running: boolean
+  port?: number
+  kind?: DbKind
+  connectionId?: string
+}
+
 export default function Sidebar({
   connections,
   saved,
@@ -59,6 +66,7 @@ export default function Sidebar({
   theme,
   onToggleTheme
 }: Props): JSX.Element {
+  const api = useApi()
   const caps = useCaps()
   const serverMode = useServerMode()
   const hasAny = connections.length > 0 || saved.length > 0
@@ -74,6 +82,47 @@ export default function Sidebar({
   const [persist, setPersist] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [mcpStatus, setMcpStatus] = useState<McpStatus>({ running: false })
+  const [mcpBusy, setMcpBusy] = useState(false)
+
+  const { mcp } = api
+  const refreshMcpStatus = useCallback(async () => {
+    try {
+      const s = await mcp.status()
+      setMcpStatus(s)
+    } catch {
+      // ignorar se MCP não disponível
+    }
+  }, [mcp])
+
+  useEffect(() => {
+    void refreshMcpStatus()
+  }, [refreshMcpStatus])
+
+  async function handleMcpStart(): Promise<void> {
+    if (!activeId) return
+    setMcpBusy(true)
+    try {
+      await mcp.start(activeId)
+      await refreshMcpStatus()
+    } catch (err) {
+      console.error('[MCP]', err)
+    } finally {
+      setMcpBusy(false)
+    }
+  }
+
+  async function handleMcpStop(): Promise<void> {
+    setMcpBusy(true)
+    try {
+      await mcp.stop()
+      await refreshMcpStatus()
+    } catch (err) {
+      console.error('[MCP]', err)
+    } finally {
+      setMcpBusy(false)
+    }
+  }
 
   function changeKind(next: DbKind): void {
     setKind(next)
@@ -249,6 +298,35 @@ export default function Sidebar({
         onDeleteSaved={onDeleteSaved}
         onInsertSql={onInsertSql}
       />
+
+      {activeId && (
+        <div className="mcp-toggle">
+          {mcpStatus.running && mcpStatus.connectionId === activeId ? (
+            <>
+              <span className="mcp-status mcp-active" title="Servidor MCP ativo para IA">
+                ◉ MCP ativo — porta {mcpStatus.port}
+              </span>
+              <button
+                className="mcp-stop-btn"
+                disabled={mcpBusy}
+                onClick={() => void handleMcpStop()}
+                title="Parar servidor MCP"
+              >
+                {mcpBusy ? '…' : 'Parar MCP'}
+              </button>
+            </>
+          ) : (
+            <button
+              className="mcp-start-btn"
+              disabled={mcpBusy}
+              onClick={() => void handleMcpStart()}
+              title="Habilitar servidor MCP para agentes de IA usarem este banco"
+            >
+              {mcpBusy ? '…' : '⚡ Habilitar MCP para IA'}
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   )
 }

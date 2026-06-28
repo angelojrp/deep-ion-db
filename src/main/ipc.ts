@@ -6,6 +6,7 @@ import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
 import * as ai from './aiSettings'
 import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
+import { startMcpForConnection, stopMcp, getMcpStatus } from '../mcp/manager'
 import type { AiChatMessage, AiSettingsInput, QueryResult } from '@shared/types'
 
 const ROW_LIMIT = 10_000
@@ -133,8 +134,16 @@ export function registerDbIpc(): void {
   ipcMain.handle('hist:toggleFavorite', (_e, id: string) => history.toggleFavorite(id))
   ipcMain.handle('hist:remove', (_e, id: string) => history.remove(id))
   ipcMain.handle('hist:clear', () => history.clear())
+
+  // MCP (issue #146): servidor HTTP para integração com agentes de IA.
+  ipcMain.handle('mcp:start', (_e, connectionId: string) =>
+    startMcpForConnection(connectionId, manager)
+  )
+  ipcMain.handle('mcp:stop', () => stopMcp())
+  ipcMain.handle('mcp:status', () => getMcpStatus())
 }
 
-export function shutdownDb(): Promise<void> {
+export async function shutdownDb(): Promise<void> {
+  await stopMcp().catch(() => {})
   return manager.disconnectAll()
 }

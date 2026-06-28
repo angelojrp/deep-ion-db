@@ -255,12 +255,20 @@ export interface AiApi {
   onStreamError(cb: (msg: string) => void): () => void
 }
 
+/** API do servidor MCP embutido (issue #146). */
+export interface McpApi {
+  start(connectionId: string): Promise<{ port: number }>
+  stop(): Promise<void>
+  status(): Promise<{ running: boolean; port?: number; kind?: DbKind; connectionId?: string }>
+}
+
 export interface AppApi {
   db: DbApi
   conn: ConnApi
   ws: WsApi
   hist: HistApi
   ai: AiApi
+  mcp: McpApi
 }
 
 /**
