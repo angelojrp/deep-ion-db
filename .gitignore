@@ -14,5 +14,8 @@ dist/
 .env
 deploy/k8s/secret.yaml
 
-# Frontend web (build)
+# Frontend web (build) — gerados pelo esbuild (scripts/build-web.mjs).
+# app.css é o bundle das CSS importadas em web/src/main.tsx; editar a fonte
+# (styles.css / web/src/admin.css), nunca o artefato gerado.
 web/public/app.js
+web/public/app.css
