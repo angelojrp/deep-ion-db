@@ -14,8 +14,9 @@
     "types": ["node", "vite/client"],
     "paths": {
       "@shared/*": ["./src/shared/*"],
+      "@ai/*": ["./src/ai/*"],
       "@renderer/*": ["./src/renderer/src/*"]
     }
   },
-  "include": ["src/renderer/src/**/*", "src/shared/**/*"]
+  "include": ["src/renderer/src/**/*", "src/shared/**/*", "src/ai/**/*"]
 }

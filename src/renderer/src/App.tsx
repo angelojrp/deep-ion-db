@@ -18,6 +18,7 @@ import SessionsPanel from './components/SessionsPanel'
 import RolesPanel from './components/RolesPanel'
 import HealthPanel from './components/HealthPanel'
 import AiSettingsPanel from './components/AiSettingsPanel'
+import AiAssistantPanel from './components/AiAssistantPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -105,6 +106,7 @@ export default function App(): JSX.Element {
   const [showRoles, setShowRoles] = useState(false)
   const [showHealth, setShowHealth] = useState(false)
   const [showAi, setShowAi] = useState(false)
+  const [showAssistant, setShowAssistant] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -454,6 +456,13 @@ export default function App(): JSX.Element {
               </button>
               <button
                 className="ghost-btn"
+                onClick={() => setShowAssistant(true)}
+                title="Assistente IA (NL→SQL, explicar, chat)"
+              >
+                ✨ Assistente
+              </button>
+              <button
+                className="ghost-btn"
                 onClick={() => setShowAi(true)}
                 title="Configuração de IA"
               >
@@ -533,6 +542,16 @@ export default function App(): JSX.Element {
       )}
 
       {showAi && <AiSettingsPanel onClose={() => setShowAi(false)} />}
+
+      {showAssistant && (
+        <AiAssistantPanel
+          connectionId={activeTab?.connectionId ?? null}
+          kind={activeConn?.kind}
+          currentSql={activeTab?.content ?? ''}
+          onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+          onClose={() => setShowAssistant(false)}
+        />
+      )}
     </div>
   )
 }
