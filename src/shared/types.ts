@@ -1,6 +1,6 @@
 /** Tipos compartilhados entre main, preload e renderer. */
 
-export type DbKind = 'postgres' | 'mysql' | 'sqlite'
+export type DbKind = 'postgres' | 'mysql' | 'sqlite' | 'mssql'
 
 export interface ConnectionConfig {
   id: string
