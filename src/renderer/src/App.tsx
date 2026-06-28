@@ -19,6 +19,7 @@ import RolesPanel from './components/RolesPanel'
 import HealthPanel from './components/HealthPanel'
 import AiSettingsPanel from './components/AiSettingsPanel'
 import AiAssistantPanel from './components/AiAssistantPanel'
+import DiffPanel from './components/DiffPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -107,6 +108,7 @@ export default function App(): JSX.Element {
   const [showHealth, setShowHealth] = useState(false)
   const [showAi, setShowAi] = useState(false)
   const [showAssistant, setShowAssistant] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   )
@@ -476,6 +478,14 @@ export default function App(): JSX.Element {
               </button>
               <button
                 className="ghost-btn"
+                onClick={() => setShowDiff(true)}
+                disabled={connections.length < 2}
+                title="Comparar schemas (requer 2 conexões)"
+              >
+                Diff
+              </button>
+              <button
+                className="ghost-btn"
                 onClick={() => setShowAssistant(true)}
                 title="Assistente IA (NL→SQL, explicar, chat)"
               >
@@ -563,6 +573,14 @@ export default function App(): JSX.Element {
       )}
 
       {showAi && <AiSettingsPanel onClose={() => setShowAi(false)} />}
+
+      {showDiff && (
+        <DiffPanel
+          connections={connections}
+          onOpenDoc={openDoc}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
 
       {showAssistant && (
         <AiAssistantPanel
