@@ -162,9 +162,38 @@ export interface HistApi {
   clear(): Promise<void>
 }
 
+/** Integração com IA (épico #3). */
+export type AIProviderKind = 'anthropic' | 'openai'
+
+export interface AIPublicConfig {
+  kind: AIProviderKind
+  model: string
+  baseUrl?: string
+  hasKey: boolean
+}
+
+export interface AiSettingsInput {
+  kind: AIProviderKind
+  model?: string
+  baseUrl?: string
+  apiKey?: string
+}
+
+export interface AiChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AiApi {
+  getConfig(): Promise<AIPublicConfig | null>
+  setConfig(input: AiSettingsInput): Promise<AIPublicConfig>
+  chat(messages: AiChatMessage[], system?: string): Promise<string>
+}
+
 export interface AppApi {
   db: DbApi
   conn: ConnApi
   ws: WsApi
   hist: HistApi
+  ai: AiApi
 }
