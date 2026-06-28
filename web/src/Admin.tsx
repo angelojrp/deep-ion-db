@@ -1,4 +1,5 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
+import { ConfirmModal, Modal } from './Modal'
 
 interface DataSource {
   id: string
@@ -50,6 +51,30 @@ interface AuditPage {
 
 type Tab = 'data-sources' | 'users' | 'grants' | 'audit'
 
+const DB_ICONS: Record<string, string> = {
+  postgres: '🐘',
+  mysql: '🐬',
+  sqlite: '📄',
+  mssql: '🪟',
+  oracle: '🔶'
+}
+
+const DB_LABELS: Record<string, string> = {
+  postgres: 'PostgreSQL',
+  mysql: 'MySQL',
+  sqlite: 'SQLite',
+  mssql: 'SQL Server',
+  oracle: 'Oracle'
+}
+
+const DEFAULT_PORTS: Record<string, string> = {
+  postgres: '5432',
+  mysql: '3306',
+  mssql: '1433',
+  oracle: '1521',
+  sqlite: ''
+}
+
 function token(): string {
   return localStorage.getItem('token') ?? ''
 }
@@ -74,24 +99,224 @@ async function api<T>(path: string, opts: RequestInit = {}): Promise<T> {
 
 // ---------- Data Sources tab ----------
 
+interface DsForm {
+  name: string
+  kind: string
+  host: string
+  port: string
+  database: string
+  username: string
+  password: string
+  ssl: boolean
+  environment: string
+}
+
+const emptyDsForm = (): DsForm => ({
+  name: '',
+  kind: 'postgres',
+  host: '',
+  port: '5432',
+  database: '',
+  username: '',
+  password: '',
+  ssl: false,
+  environment: 'nonprod'
+})
+
+function DataSourceForm({
+  form,
+  setForm,
+  editing,
+  onSave,
+  onClose,
+  error
+}: {
+  form: DsForm
+  setForm: (fn: (f: DsForm) => DsForm) => void
+  editing: DataSource | null
+  onSave: () => Promise<void>
+  onClose: () => void
+  error: string | null
+}): JSX.Element {
+  const isSqlite = form.kind === 'sqlite'
+  const needsServer = !isSqlite
+
+  function handleKindChange(kind: string): void {
+    setForm((f) => ({
+      ...f,
+      kind,
+      port: DEFAULT_PORTS[kind] ?? '',
+      host: kind === 'sqlite' ? '' : f.host
+    }))
+  }
+
+  return (
+    <Modal
+      title={editing ? 'Editar Data Source' : 'Novo Data Source'}
+      onClose={onClose}
+      width={580}
+    >
+      {error && <div className="admin-error">{error}</div>}
+      <div className="modal-form">
+        <div className="modal-form-section">
+          <div className="modal-form-row">
+            <label className="modal-label">
+              Nome do data source
+              <input
+                className="modal-input"
+                placeholder="ex: prod-postgres, analytics-db"
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </label>
+            <label className="modal-label modal-label-narrow">
+              Ambiente
+              <select
+                className="modal-input"
+                value={form.environment}
+                onChange={(e) => setForm((f) => ({ ...f, environment: e.target.value }))}
+              >
+                <option value="nonprod">não-produção</option>
+                <option value="prod">produção</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="modal-form-section">
+          <div className="modal-section-label">Tipo de banco</div>
+          <div className="db-kind-grid">
+            {Object.entries(DB_LABELS).map(([k, label]) => (
+              <button
+                key={k}
+                className={`db-kind-btn${form.kind === k ? ' selected' : ''}`}
+                onClick={() => handleKindChange(k)}
+                type="button"
+              >
+                <span className="db-kind-icon">{DB_ICONS[k]}</span>
+                <span className="db-kind-label">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {isSqlite ? (
+          <div className="modal-form-section">
+            <div className="modal-section-label">Arquivo</div>
+            <label className="modal-label">
+              Caminho do arquivo .db
+              <input
+                className="modal-input"
+                placeholder="/caminho/para/banco.db"
+                value={form.database}
+                onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
+              />
+            </label>
+            <p className="form-hint">
+              Caminho absoluto para o arquivo SQLite no sistema de arquivos.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="modal-form-section">
+              <div className="modal-section-label">Conexão</div>
+              <div className="modal-form-row">
+                <label className="modal-label">
+                  Host
+                  <input
+                    className="modal-input"
+                    placeholder="localhost"
+                    value={form.host}
+                    onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+                  />
+                </label>
+                <label className="modal-label modal-label-port">
+                  Porta
+                  <input
+                    className="modal-input"
+                    type="number"
+                    placeholder={DEFAULT_PORTS[form.kind] ?? ''}
+                    value={form.port}
+                    onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
+                  />
+                </label>
+              </div>
+              <label className="modal-label">
+                Banco (database)
+                <input
+                  className="modal-input"
+                  placeholder="nome_do_banco"
+                  value={form.database}
+                  onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
+                />
+              </label>
+            </div>
+
+            {needsServer && (
+              <div className="modal-form-section">
+                <div className="modal-section-label">Credenciais</div>
+                <div className="modal-form-row">
+                  <label className="modal-label">
+                    Usuário
+                    <input
+                      className="modal-input"
+                      placeholder="usuario"
+                      value={form.username}
+                      onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                    />
+                  </label>
+                  <label className="modal-label">
+                    Senha{editing ? ' (deixar vazio para manter)' : ''}
+                    <input
+                      className="modal-input"
+                      type="password"
+                      placeholder={editing ? '••••••••' : 'senha'}
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                    />
+                  </label>
+                </div>
+                <label className="modal-label modal-label-check">
+                  <input
+                    type="checkbox"
+                    checked={form.ssl}
+                    onChange={(e) => setForm((f) => ({ ...f, ssl: e.target.checked }))}
+                  />
+                  Usar SSL/TLS
+                </label>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="admin-form-actions">
+        <button
+          className="run-btn"
+          onClick={onSave}
+          disabled={!form.name || (!isSqlite && !form.host)}
+        >
+          {editing ? 'Salvar alterações' : 'Criar data source'}
+        </button>
+        <button className="ghost-btn" onClick={onClose}>
+          Cancelar
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 function DataSourcesTab(): JSX.Element {
   const [sources, setSources] = useState<DataSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<DataSource | null>(null)
   const [testResult, setTestResult] = useState<Record<string, string>>({})
-  const [form, setForm] = useState({
-    name: '',
-    kind: 'postgres',
-    host: '',
-    port: '5432',
-    database: '',
-    username: '',
-    password: '',
-    ssl: false,
-    environment: 'nonprod'
-  })
+  const [confirmRemove, setConfirmRemove] = useState<DataSource | null>(null)
+  const [form, setForm] = useState<DsForm>(emptyDsForm)
 
   const load = useCallback(async () => {
     try {
@@ -110,17 +335,8 @@ function DataSourcesTab(): JSX.Element {
 
   function openNew(): void {
     setEditing(null)
-    setForm({
-      name: '',
-      kind: 'postgres',
-      host: '',
-      port: '5432',
-      database: '',
-      username: '',
-      password: '',
-      ssl: false,
-      environment: 'nonprod'
-    })
+    setForm(emptyDsForm())
+    setFormError(null)
     setShowForm(true)
   }
 
@@ -130,18 +346,19 @@ function DataSourcesTab(): JSX.Element {
       name: ds.name,
       kind: ds.kind,
       host: ds.host ?? '',
-      port: String(ds.port ?? 5432),
+      port: String(ds.port ?? DEFAULT_PORTS[ds.kind] ?? ''),
       database: ds.database ?? '',
       username: ds.username ?? '',
       password: '',
       ssl: ds.ssl,
       environment: ds.environment
     })
+    setFormError(null)
     setShowForm(true)
   }
 
   async function save(): Promise<void> {
-    setError(null)
+    setFormError(null)
     const body = {
       name: form.name,
       kind: form.kind,
@@ -166,7 +383,7 @@ function DataSourcesTab(): JSX.Element {
       setLoading(true)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setFormError(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -174,16 +391,16 @@ function DataSourcesTab(): JSX.Element {
     setTestResult((r) => ({ ...r, [id]: 'testando…' }))
     try {
       await api(`/api/data-sources/${id}/test`, { method: 'POST' })
-      setTestResult((r) => ({ ...r, [id]: 'OK' }))
+      setTestResult((r) => ({ ...r, [id]: '✓ OK' }))
     } catch (e) {
       setTestResult((r) => ({ ...r, [id]: e instanceof Error ? e.message : 'erro' }))
     }
   }
 
   async function remove(id: string): Promise<void> {
-    if (!confirm('Remover este data source?')) return
     try {
       await api(`/api/data-sources/${id}`, { method: 'DELETE' })
+      setConfirmRemove(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -205,151 +422,97 @@ function DataSourcesTab(): JSX.Element {
       </div>
 
       {showForm && (
-        <div className="admin-form">
-          <h3>{editing ? 'Editar Data Source' : 'Novo Data Source'}</h3>
-          <div className="admin-form-grid">
-            <label>
-              Nome
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              />
-            </label>
-            <label>
-              Tipo
-              <select
-                value={form.kind}
-                onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value }))}
-              >
-                <option value="postgres">PostgreSQL</option>
-                <option value="mysql">MySQL</option>
-                <option value="sqlite">SQLite</option>
-              </select>
-            </label>
-            <label>
-              Host
-              <input
-                value={form.host}
-                onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
-              />
-            </label>
-            <label>
-              Porta
-              <input
-                type="number"
-                value={form.port}
-                onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
-              />
-            </label>
-            <label>
-              Banco
-              <input
-                value={form.database}
-                onChange={(e) => setForm((f) => ({ ...f, database: e.target.value }))}
-              />
-            </label>
-            <label>
-              Usuário
-              <input
-                value={form.username}
-                onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              />
-            </label>
-            <label>
-              Senha {editing && '(deixar vazio para manter)'}
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-            </label>
-            <label>
-              Ambiente
-              <select
-                value={form.environment}
-                onChange={(e) => setForm((f) => ({ ...f, environment: e.target.value }))}
-              >
-                <option value="nonprod">não-produção</option>
-                <option value="prod">produção</option>
-              </select>
-            </label>
-            <label className="admin-check">
-              <input
-                type="checkbox"
-                checked={form.ssl}
-                onChange={(e) => setForm((f) => ({ ...f, ssl: e.target.checked }))}
-              />
-              SSL
-            </label>
-          </div>
-          <div className="admin-form-actions">
-            <button className="run-btn" onClick={save}>
-              Salvar
-            </button>
-            <button className="ghost-btn" onClick={() => setShowForm(false)}>
-              Cancelar
-            </button>
-          </div>
-        </div>
+        <DataSourceForm
+          form={form}
+          setForm={setForm}
+          editing={editing}
+          onSave={save}
+          onClose={() => setShowForm(false)}
+          error={formError}
+        />
       )}
 
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Tipo</th>
-              <th>Host</th>
-              <th>Banco</th>
-              <th>Ambiente</th>
-              <th>SSL</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sources.map((ds) => (
-              <tr key={ds.id}>
-                <td>{ds.name}</td>
-                <td>{ds.kind}</td>
-                <td>
-                  {ds.host ?? '—'}
-                  {ds.port ? `:${ds.port}` : ''}
-                </td>
-                <td>{ds.database ?? '—'}</td>
-                <td>
-                  <span className={ds.environment === 'prod' ? 'badge-prod' : 'badge-dev'}>
-                    {ds.environment}
-                  </span>
-                </td>
-                <td>{ds.ssl ? 'sim' : 'não'}</td>
-                <td>
-                  <div className="admin-actions">
-                    <button className="ghost-btn" onClick={() => void testConn(ds.id)}>
-                      Testar
-                    </button>
-                    {testResult[ds.id] && (
-                      <span className="admin-test-result">{testResult[ds.id]}</span>
-                    )}
-                    <button className="ghost-btn" onClick={() => openEdit(ds)}>
-                      Editar
-                    </button>
-                    <button className="ghost-btn danger-btn" onClick={() => void remove(ds.id)}>
-                      Remover
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {sources.length === 0 && (
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remover data source"
+          description={`Remover "${confirmRemove.name}"? Esta ação também removerá todos os grants associados e não pode ser desfeita.`}
+          confirmLabel="Remover"
+          danger
+          onConfirm={() => void remove(confirmRemove.id)}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
+
+      {sources.length === 0 ? (
+        <div className="admin-empty-state">
+          <div className="admin-empty-icon">🗄️</div>
+          <div className="admin-empty-title">Nenhum data source cadastrado</div>
+          <div className="admin-empty-desc">
+            Adicione uma conexão de banco de dados para começar.
+          </div>
+          <button className="run-btn" onClick={openNew}>
+            + Novo Data Source
+          </button>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
               <tr>
-                <td colSpan={7} className="admin-empty">
-                  Nenhum data source cadastrado.
-                </td>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Host</th>
+                <th>Banco</th>
+                <th>Ambiente</th>
+                <th>SSL</th>
+                <th>Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {sources.map((ds) => (
+                <tr key={ds.id}>
+                  <td className="ds-name-cell">
+                    <span className="ds-icon">{DB_ICONS[ds.kind] ?? '🗄️'}</span>
+                    {ds.name}
+                  </td>
+                  <td>{DB_LABELS[ds.kind] ?? ds.kind}</td>
+                  <td>
+                    {ds.host ?? '—'}
+                    {ds.port ? `:${ds.port}` : ''}
+                  </td>
+                  <td>{ds.database ?? '—'}</td>
+                  <td>
+                    <span className={ds.environment === 'prod' ? 'badge-prod' : 'badge-dev'}>
+                      {ds.environment === 'prod' ? 'produção' : 'não-prod'}
+                    </span>
+                  </td>
+                  <td>{ds.ssl ? '✓' : '—'}</td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="ghost-btn" onClick={() => void testConn(ds.id)}>
+                        Testar
+                      </button>
+                      {testResult[ds.id] && (
+                        <span
+                          className={`admin-test-result${testResult[ds.id].startsWith('✓') ? ' test-ok' : ' test-err'}`}
+                        >
+                          {testResult[ds.id]}
+                        </span>
+                      )}
+                      <button className="ghost-btn" onClick={() => openEdit(ds)}>
+                        Editar
+                      </button>
+                      <button className="ghost-btn danger-btn" onClick={() => setConfirmRemove(ds)}>
+                        Remover
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -360,6 +523,7 @@ function UsersTab(): JSX.Element {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [confirmRemove, setConfirmRemove] = useState<User | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -386,9 +550,9 @@ function UsersTab(): JSX.Element {
   }
 
   async function remove(id: string): Promise<void> {
-    if (!confirm('Remover este usuário e todos os seus grants?')) return
     try {
       await api(`/api/users/${id}`, { method: 'DELETE' })
+      setConfirmRemove(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -405,48 +569,63 @@ function UsersTab(): JSX.Element {
           Usuários<span className="admin-count">{users.length}</span>
         </h3>
       </div>
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>E-mail</th>
-              <th>Nome</th>
-              <th>Papel</th>
-              <th>Desde</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.email ?? '—'}</td>
-                <td>{u.name ?? '—'}</td>
-                <td>
-                  <select value={u.role} onChange={(e) => void changeRole(u.id, e.target.value)}>
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
-                  </select>
-                </td>
-                <td>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
-                <td>
-                  <div className="admin-actions">
-                    <button className="ghost-btn danger-btn" onClick={() => void remove(u.id)}>
-                      Remover
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {users.length === 0 && (
+
+      {confirmRemove && (
+        <ConfirmModal
+          title="Remover usuário"
+          description={`Remover "${confirmRemove.email ?? confirmRemove.name ?? confirmRemove.id}"? Todos os grants deste usuário também serão removidos.`}
+          confirmLabel="Remover"
+          danger
+          onConfirm={() => void remove(confirmRemove.id)}
+          onCancel={() => setConfirmRemove(null)}
+        />
+      )}
+
+      {users.length === 0 ? (
+        <div className="admin-empty-state">
+          <div className="admin-empty-icon">👥</div>
+          <div className="admin-empty-title">Nenhum usuário cadastrado</div>
+          <div className="admin-empty-desc">
+            Usuários aparecem aqui após se autenticarem via SSO pela primeira vez.
+          </div>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
               <tr>
-                <td colSpan={5} className="admin-empty">
-                  Nenhum usuário.
-                </td>
+                <th>E-mail</th>
+                <th>Nome</th>
+                <th>Papel</th>
+                <th>Desde</th>
+                <th>Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {users.map((u) => (
+                <tr key={u.id}>
+                  <td>{u.email ?? '—'}</td>
+                  <td>{u.name ?? '—'}</td>
+                  <td>
+                    <select value={u.role} onChange={(e) => void changeRole(u.id, e.target.value)}>
+                      <option value="user">user</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
+                  <td>{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="ghost-btn danger-btn" onClick={() => setConfirmRemove(u)}>
+                        Remover
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -459,7 +638,9 @@ function GrantsTab(): JSX.Element {
   const [sources, setSources] = useState<DataSource[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [confirmRevoke, setConfirmRevoke] = useState<Grant | null>(null)
   const [form, setForm] = useState({ userId: '', dataSourceId: '', mode: 'read', expiresAt: '' })
 
   const load = useCallback(async () => {
@@ -484,7 +665,7 @@ function GrantsTab(): JSX.Element {
   }, [load])
 
   async function create(): Promise<void> {
-    setError(null)
+    setFormError(null)
     try {
       await api('/api/grants', {
         method: 'POST',
@@ -495,7 +676,6 @@ function GrantsTab(): JSX.Element {
         })
       })
       if (form.expiresAt) {
-        // Get the created grant id and patch expires_at
         const updated = await api<{ grants: Grant[] }>('/api/grants')
         const g = updated.grants.find(
           (x) => x.user_id === form.userId && x.data_source_id === form.dataSourceId
@@ -509,7 +689,7 @@ function GrantsTab(): JSX.Element {
       setShowForm(false)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setFormError(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -525,10 +705,10 @@ function GrantsTab(): JSX.Element {
     }
   }
 
-  async function remove(id: string): Promise<void> {
-    if (!confirm('Revogar este grant?')) return
+  async function revoke(id: string): Promise<void> {
     try {
       await api(`/api/grants/${id}`, { method: 'DELETE' })
+      setConfirmRevoke(null)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -551,6 +731,7 @@ function GrantsTab(): JSX.Element {
           className="run-btn"
           onClick={() => {
             setForm({ userId: '', dataSourceId: '', mode: 'read', expiresAt: '' })
+            setFormError(null)
             setShowForm(true)
           }}
         >
@@ -559,55 +740,63 @@ function GrantsTab(): JSX.Element {
       </div>
 
       {showForm && (
-        <div className="admin-form">
-          <h3>Conceder Acesso</h3>
-          <div className="admin-form-grid">
-            <label>
-              Usuário
-              <select
-                value={form.userId}
-                onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
-              >
-                <option value="">Selecione…</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.email ?? u.name ?? u.id}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Data Source
-              <select
-                value={form.dataSourceId}
-                onChange={(e) => setForm((f) => ({ ...f, dataSourceId: e.target.value }))}
-              >
-                <option value="">Selecione…</option>
-                {sources.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Modo
-              <select
-                value={form.mode}
-                onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
-              >
-                <option value="read">Leitura</option>
-                <option value="readwrite">Leitura e Escrita</option>
-              </select>
-            </label>
-            <label>
-              Validade (opcional)
-              <input
-                type="datetime-local"
-                value={form.expiresAt}
-                onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
-              />
-            </label>
+        <Modal title="Conceder Acesso" onClose={() => setShowForm(false)} width={500}>
+          {formError && <div className="admin-error">{formError}</div>}
+          <div className="modal-form">
+            <div className="modal-form-section">
+              <label className="modal-label">
+                Usuário
+                <select
+                  className="modal-input"
+                  value={form.userId}
+                  onChange={(e) => setForm((f) => ({ ...f, userId: e.target.value }))}
+                >
+                  <option value="">Selecione um usuário…</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.email ?? u.name ?? u.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="modal-label">
+                Data Source
+                <select
+                  className="modal-input"
+                  value={form.dataSourceId}
+                  onChange={(e) => setForm((f) => ({ ...f, dataSourceId: e.target.value }))}
+                >
+                  <option value="">Selecione um data source…</option>
+                  {sources.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {DB_ICONS[d.kind] ?? ''} {d.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="modal-form-row">
+                <label className="modal-label">
+                  Modo de acesso
+                  <select
+                    className="modal-input"
+                    value={form.mode}
+                    onChange={(e) => setForm((f) => ({ ...f, mode: e.target.value }))}
+                  >
+                    <option value="read">🔍 Somente leitura</option>
+                    <option value="readwrite">✏️ Leitura e escrita</option>
+                  </select>
+                </label>
+                <label className="modal-label">
+                  Validade (opcional)
+                  <input
+                    className="modal-input"
+                    type="datetime-local"
+                    value={form.expiresAt}
+                    onChange={(e) => setForm((f) => ({ ...f, expiresAt: e.target.value }))}
+                  />
+                </label>
+              </div>
+            </div>
           </div>
           <div className="admin-form-actions">
             <button
@@ -615,61 +804,90 @@ function GrantsTab(): JSX.Element {
               onClick={create}
               disabled={!form.userId || !form.dataSourceId}
             >
-              Conceder
+              Conceder acesso
             </button>
             <button className="ghost-btn" onClick={() => setShowForm(false)}>
               Cancelar
             </button>
           </div>
-        </div>
+        </Modal>
       )}
 
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Data Source</th>
-              <th>Modo</th>
-              <th>Validade</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {grants.map((g) => (
-              <tr key={g.id} className={g.expired || g.suspended ? 'row-inactive' : ''}>
-                <td>{userMap[g.user_id] ?? g.user_id}</td>
-                <td>{dsMap[g.data_source_id] ?? g.data_source_id}</td>
-                <td>{g.mode}</td>
-                <td>{g.expires_at ? new Date(g.expires_at).toLocaleString('pt-BR') : '—'}</td>
-                <td>
-                  {g.expired && <span className="badge-warn">expirado</span>}
-                  {g.suspended && <span className="badge-muted">suspenso</span>}
-                  {!g.expired && !g.suspended && <span className="badge-dev">ativo</span>}
-                </td>
-                <td>
-                  <div className="admin-actions">
-                    <button className="ghost-btn" onClick={() => void toggleSuspend(g)}>
-                      {g.suspended ? 'Reativar' : 'Suspender'}
-                    </button>
-                    <button className="ghost-btn danger-btn" onClick={() => void remove(g.id)}>
-                      Revogar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {grants.length === 0 && (
+      {confirmRevoke && (
+        <ConfirmModal
+          title="Revogar concessão"
+          description={`Revogar o acesso de "${userMap[confirmRevoke.user_id] ?? confirmRevoke.user_id}" ao "${dsMap[confirmRevoke.data_source_id] ?? confirmRevoke.data_source_id}"?`}
+          confirmLabel="Revogar"
+          danger
+          onConfirm={() => void revoke(confirmRevoke.id)}
+          onCancel={() => setConfirmRevoke(null)}
+        />
+      )}
+
+      {grants.length === 0 ? (
+        <div className="admin-empty-state">
+          <div className="admin-empty-icon">🔑</div>
+          <div className="admin-empty-title">Nenhuma concessão ativa</div>
+          <div className="admin-empty-desc">
+            Conceda acesso a usuários para que possam conectar-se aos data sources.
+          </div>
+          <button
+            className="run-btn"
+            onClick={() => {
+              setForm({ userId: '', dataSourceId: '', mode: 'read', expiresAt: '' })
+              setFormError(null)
+              setShowForm(true)
+            }}
+          >
+            + Conceder Acesso
+          </button>
+        </div>
+      ) : (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
               <tr>
-                <td colSpan={6} className="admin-empty">
-                  Nenhum grant.
-                </td>
+                <th>Usuário</th>
+                <th>Data Source</th>
+                <th>Modo</th>
+                <th>Validade</th>
+                <th>Status</th>
+                <th>Ações</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {grants.map((g) => (
+                <tr key={g.id} className={g.expired || g.suspended ? 'row-inactive' : ''}>
+                  <td>{userMap[g.user_id] ?? g.user_id}</td>
+                  <td>
+                    <span className="ds-icon">
+                      {DB_ICONS[sources.find((s) => s.id === g.data_source_id)?.kind ?? ''] ?? '🗄️'}
+                    </span>
+                    {dsMap[g.data_source_id] ?? g.data_source_id}
+                  </td>
+                  <td>{g.mode === 'readwrite' ? '✏️ leitura+escrita' : '🔍 leitura'}</td>
+                  <td>{g.expires_at ? new Date(g.expires_at).toLocaleString('pt-BR') : '—'}</td>
+                  <td>
+                    {g.expired && <span className="badge-warn">expirado</span>}
+                    {g.suspended && <span className="badge-muted">suspenso</span>}
+                    {!g.expired && !g.suspended && <span className="badge-dev">ativo</span>}
+                  </td>
+                  <td>
+                    <div className="admin-actions">
+                      <button className="ghost-btn" onClick={() => void toggleSuspend(g)}>
+                        {g.suspended ? 'Reativar' : 'Suspender'}
+                      </button>
+                      <button className="ghost-btn danger-btn" onClick={() => setConfirmRevoke(g)}>
+                        Revogar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -726,7 +944,6 @@ function AuditTab(): JSX.Element {
     if (filters.from) params.set('from', filters.from)
     if (filters.to) params.set('to', filters.to)
     const t = token()
-    // Download via link com header de auth não é possível diretamente; usar fetch+blob
     void (async () => {
       const res = await fetch(`/api/audit?${params.toString()}`, {
         headers: t ? { authorization: `Bearer ${t}` } : {}
@@ -748,12 +965,12 @@ function AuditTab(): JSX.Element {
       {error && <div className="admin-error">{error}</div>}
       <div className="admin-filters">
         <input
-          placeholder="Usuário ID"
+          placeholder="Filtrar por ID de usuário"
           value={filters.userId}
           onChange={(e) => setFilters((f) => ({ ...f, userId: e.target.value }))}
         />
         <input
-          placeholder="Ação (ex: query)"
+          placeholder="Ação (ex: query, login)"
           value={filters.action}
           onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value }))}
         />
@@ -815,7 +1032,7 @@ function AuditTab(): JSX.Element {
                 {page.entries.length === 0 && (
                   <tr>
                     <td colSpan={5} className="admin-empty">
-                      Sem entradas.
+                      Sem entradas para os filtros selecionados.
                     </td>
                   </tr>
                 )}
@@ -856,11 +1073,11 @@ interface Props {
 export default function Admin({ onBack }: Props): JSX.Element {
   const [tab, setTab] = useState<Tab>('data-sources')
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'data-sources', label: 'Data Sources' },
-    { id: 'users', label: 'Usuários' },
-    { id: 'grants', label: 'Concessões' },
-    { id: 'audit', label: 'Auditoria' }
+  const tabs: { id: Tab; label: string; icon: string }[] = [
+    { id: 'data-sources', label: 'Data Sources', icon: '🗄️' },
+    { id: 'users', label: 'Usuários', icon: '👥' },
+    { id: 'grants', label: 'Concessões', icon: '🔑' },
+    { id: 'audit', label: 'Auditoria', icon: '📋' }
   ]
 
   return (
@@ -881,6 +1098,7 @@ export default function Admin({ onBack }: Props): JSX.Element {
             className={tab === t.id ? 'admin-tab active' : 'admin-tab'}
             onClick={() => setTab(t.id)}
           >
+            <span className="admin-tab-icon">{t.icon}</span>
             {t.label}
           </button>
         ))}
