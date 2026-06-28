@@ -38,9 +38,20 @@ function createWindow(): void {
   }
 }
 
+/** Auto-update via Releases do GitHub (apenas no app empacotado). */
+function setupAutoUpdate(): void {
+  if (!app.isPackaged) return
+  import('electron-updater')
+    .then(({ autoUpdater }) => {
+      autoUpdater.checkForUpdatesAndNotify().catch((e) => console.warn('auto-update:', e))
+    })
+    .catch((e) => console.warn('auto-update indisponível:', e))
+}
+
 app.whenReady().then(() => {
   registerDbIpc()
   createWindow()
+  setupAutoUpdate()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
