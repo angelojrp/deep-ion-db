@@ -37,7 +37,16 @@ docker compose down            # mantém os dados (volume meta-data)
 docker compose down -v         # remove também os dados
 ```
 
-Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASSWORD`, `META_DB_NAME`.
+Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASSWORD`, `META_DB_NAME`,
+`META_ENCRYPTION_KEY` (cofre de credenciais), e autenticação `AUTH_DISABLED`/`OIDC_ISSUER`/`OIDC_AUDIENCE`/`OIDC_JWKS_URI`.
+
+### Autenticação (OIDC)
+
+- **Uso pessoal / self-host:** deixe `AUTH_DISABLED=true` (a API usa um usuário admin de dev).
+- **Produção:** `AUTH_DISABLED=false` e configure o IdP (ex.: Keycloak):
+  `OIDC_ISSUER=https://idp.exemplo/realms/seu-realm`, `OIDC_AUDIENCE=deepion`. O JWKS é derivado do
+  issuer (Keycloak) ou informe `OIDC_JWKS_URI`. O primeiro usuário autenticado vira **admin**; os
+  demais entram como `user` (RBAC). Defina sempre `META_ENCRYPTION_KEY`.
 
 ---
 
