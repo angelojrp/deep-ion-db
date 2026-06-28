@@ -75,6 +75,13 @@ export class SqliteDriver implements Driver {
     tx(statements)
   }
 
+  async tableDdl(_schema: string, table: string): Promise<string> {
+    const row = this.handle
+      .prepare(`select sql from sqlite_master where name = ? and type in ('table','view')`)
+      .get(table) as { sql: string } | undefined
+    return row?.sql ? `${row.sql};` : `-- DDL não encontrado para ${table}`
+  }
+
   async listTables(): Promise<SchemaTable[]> {
     const rows = this.handle
       .prepare(

@@ -24,4 +24,5 @@ export interface Driver {
   listColumns(schema: string, table: string): Promise<ColumnInfo[]>
   primaryKeys(schema: string, table: string): Promise<string[]>
   execBatch(statements: SqlStatement[]): Promise<void>
+  tableDdl(schema: string, table: string): Promise<string>
 }

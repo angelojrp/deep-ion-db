@@ -78,6 +78,14 @@ export class PostgresDriver implements Driver {
     }
   }
 
+  async tableDdl(schema: string, table: string): Promise<string> {
+    const cols = await this.listColumns(schema, table)
+    const pk = await this.primaryKeys(schema, table)
+    const lines = cols.map((c) => `  "${c.name}" ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
+    if (pk.length) lines.push(`  PRIMARY KEY (${pk.map((c) => `"${c}"`).join(', ')})`)
+    return `CREATE TABLE "${schema}"."${table}" (\n${lines.join(',\n')}\n);`
+  }
+
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {
     const res = await this.client.query(
       `select column_name as name, data_type as "dataType", is_nullable as nullable

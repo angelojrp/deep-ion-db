@@ -27,6 +27,9 @@ export function registerDbIpc(): void {
   ipcMain.handle('db:execBatch', (_e, id: string, statements: SqlStatement[]) =>
     manager.execBatch(id, statements)
   )
+  ipcMain.handle('db:tableDdl', (_e, id: string, schema: string, table: string) =>
+    manager.tableDdl(id, schema, table)
+  )
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())
