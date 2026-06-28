@@ -57,6 +57,66 @@ export async function createDataSource(input: DataSourceInput): Promise<DataSour
   return res.rows[0] as DataSourcePublic
 }
 
+export interface DataSourceUpdateInput {
+  name?: string
+  host?: string
+  port?: number
+  database?: string
+  username?: string
+  password?: string
+  ssl?: boolean
+  environment?: string
+}
+
+export async function updateDataSource(
+  id: string,
+  input: DataSourceUpdateInput
+): Promise<DataSourcePublic | null> {
+  const setClauses: string[] = []
+  const values: unknown[] = []
+  let i = 1
+  if (input.name !== undefined) {
+    setClauses.push(`name = $${i++}`)
+    values.push(input.name)
+  }
+  if (input.host !== undefined) {
+    setClauses.push(`host = $${i++}`)
+    values.push(input.host)
+  }
+  if (input.port !== undefined) {
+    setClauses.push(`port = $${i++}`)
+    values.push(input.port)
+  }
+  if (input.database !== undefined) {
+    setClauses.push(`database = $${i++}`)
+    values.push(input.database)
+  }
+  if (input.username !== undefined) {
+    setClauses.push(`username = $${i++}`)
+    values.push(input.username)
+  }
+  if (input.password !== undefined) {
+    setClauses.push(`secret_enc = $${i++}`)
+    values.push(encrypt(input.password))
+  }
+  if (input.ssl !== undefined) {
+    setClauses.push(`ssl = $${i++}`)
+    values.push(input.ssl)
+  }
+  if (input.environment !== undefined) {
+    setClauses.push(`environment = $${i++}`)
+    values.push(input.environment)
+  }
+  if (setClauses.length === 0) return null
+  values.push(id)
+  const res = await getPool().query(
+    `update data_sources set ${setClauses.join(', ')} where id = $${i}
+     returning id, name, kind, host, port, database, username, ssl, environment`,
+    values
+  )
+  return (res.rows[0] as DataSourcePublic) ?? null
+}
+
 export async function deleteDataSource(id: string): Promise<void> {
   await getPool().query('delete from data_sources where id = $1', [id])
 }

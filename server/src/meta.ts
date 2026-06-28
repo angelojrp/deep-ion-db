@@ -63,8 +63,31 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 `
 
+// Migrações incrementais — idempotentes via IF NOT EXISTS / DO NOTHING
+const MIGRATIONS = `
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS expires_at timestamptz;
+ALTER TABLE grants ADD COLUMN IF NOT EXISTS suspended boolean NOT NULL DEFAULT false;
+
+-- audit_log: append-only (protege contra UPDATE/DELETE acidental)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_rules WHERE rulename = 'no_update_audit_log' AND tablename = 'audit_log'
+  ) THEN
+    CREATE RULE no_update_audit_log AS ON UPDATE TO audit_log DO INSTEAD NOTHING;
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_rules WHERE rulename = 'no_delete_audit_log' AND tablename = 'audit_log'
+  ) THEN
+    CREATE RULE no_delete_audit_log AS ON DELETE TO audit_log DO INSTEAD NOTHING;
+  END IF;
+END $$;
+`
+
 export async function migrate(): Promise<void> {
   await getPool().query(SCHEMA)
+  await getPool().query(MIGRATIONS)
 }
 
 export async function metaStatus(): Promise<{ connected: boolean; tables: string[] }> {
