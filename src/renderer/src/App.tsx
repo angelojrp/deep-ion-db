@@ -14,6 +14,9 @@ import ResultsGrid, { type EditContext } from './components/ResultsGrid'
 import Tabs from './components/Tabs'
 import MarkdownView from './components/MarkdownView'
 import HistoryPanel from './components/HistoryPanel'
+import SessionsPanel from './components/SessionsPanel'
+import RolesPanel from './components/RolesPanel'
+import HealthPanel from './components/HealthPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -97,6 +100,9 @@ export default function App(): JSX.Element {
   const [tabs, setTabs] = useState<EditorTab[]>(() => [createTab('Query 1')])
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id ?? '')
   const [showHistory, setShowHistory] = useState(false)
+  const [showSessions, setShowSessions] = useState(false)
+  const [showRoles, setShowRoles] = useState(false)
+  const [showHealth, setShowHealth] = useState(false)
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -258,6 +264,28 @@ export default function App(): JSX.Element {
     }
   }, [activeTab, updateTab, connections])
 
+  const explainQuery = useCallback(async () => {
+    if (!activeTab?.connectionId) {
+      updateActiveTab({ error: 'Selecione uma conexão para esta aba.' })
+      return
+    }
+    const base = editorApi.current?.getRunText()?.trim() || activeTab.content
+    const prefix = activeConn?.kind === 'sqlite' ? 'EXPLAIN QUERY PLAN ' : 'EXPLAIN '
+    const { id, connectionId } = activeTab
+    updateTab(id, { running: true, error: null })
+    try {
+      const res = await window.api.db.query(connectionId, prefix + base)
+      updateTab(id, { result: res, running: false, editCtx: null })
+    } catch (e) {
+      updateTab(id, {
+        error: e instanceof Error ? e.message : String(e),
+        result: null,
+        running: false,
+        editCtx: null
+      })
+    }
+  }, [activeTab, activeConn, updateTab, updateActiveTab])
+
   // ----- Workspace -----
   const openWorkspace = useCallback(async () => {
     const w = await window.api.ws.open()
@@ -378,6 +406,14 @@ export default function App(): JSX.Element {
               </button>
               <button
                 className="ghost-btn"
+                onClick={explainQuery}
+                disabled={!activeTab?.connectionId || activeTab?.running}
+                title="Mostrar o plano de execução (EXPLAIN)"
+              >
+                Explain
+              </button>
+              <button
+                className="ghost-btn"
                 onClick={() => editorApi.current?.format()}
                 title="Formatar SQL (Ctrl/Cmd + Shift + F)"
               >
@@ -389,6 +425,30 @@ export default function App(): JSX.Element {
                 title="Histórico de queries"
               >
                 🕘 Histórico
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowSessions(true)}
+                disabled={!activeTab?.connectionId}
+                title="Sessões ativas no servidor"
+              >
+                Sessões
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowRoles(true)}
+                disabled={!activeTab?.connectionId}
+                title="Usuários e roles"
+              >
+                Usuários
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowHealth(true)}
+                disabled={!activeTab?.connectionId}
+                title="Saúde do servidor"
+              >
+                Saúde
               </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
@@ -442,6 +502,25 @@ export default function App(): JSX.Element {
           onClose={() => setShowHistory(false)}
           onPick={(sql) => updateActiveTab({ content: sql, dirty: true })}
         />
+      )}
+
+      {showSessions && activeTab?.connectionId && (
+        <SessionsPanel
+          connectionId={activeTab.connectionId}
+          onClose={() => setShowSessions(false)}
+        />
+      )}
+
+      {showRoles && activeTab?.connectionId && (
+        <RolesPanel
+          connectionId={activeTab.connectionId}
+          onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+          onClose={() => setShowRoles(false)}
+        />
+      )}
+
+      {showHealth && activeTab?.connectionId && (
+        <HealthPanel connectionId={activeTab.connectionId} onClose={() => setShowHealth(false)} />
       )}
     </div>
   )

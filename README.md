@@ -25,6 +25,16 @@ Baixe o instalador da sua plataforma na página de **[Releases](https://github.c
 - Múltiplas conexões simultâneas
 - Arquitetura segura do Electron: `contextIsolation`, `sandbox`, sem `nodeIntegration` — acesso ao banco só via IPC
 
+## Versão web empresarial (em construção)
+
+Além do app desktop, há uma **versão web** (broker de acesso a bancos com SSO, data sources
+gerenciados, grants e auditoria) — épico [#53](https://github.com/angelojrp/deep-ion-db/issues/53).
+Para subir o ambiente via **Docker Compose** ou **Kubernetes**, veja **[docs/DEPLOY.md](docs/DEPLOY.md)**.
+
+```bash
+docker compose up -d && curl http://localhost:4000/health
+```
+
 ## Arquitetura
 
 ```

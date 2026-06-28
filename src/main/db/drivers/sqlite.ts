@@ -3,8 +3,11 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
+  RoleInfo,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -73,6 +76,39 @@ export class SqliteDriver implements Driver {
       for (const s of items) this.handle.prepare(s.sql).run(...(s.params as never[]))
     })
     tx(statements)
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    return []
+  }
+
+  async killSession(): Promise<void> {
+    throw new Error('SQLite (arquivo local) não possui sessões.')
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    return []
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const pageCount = Number(this.handle.pragma('page_count', { simple: true }))
+    const pageSize = Number(this.handle.pragma('page_size', { simple: true }))
+    const tables = (
+      this.handle.prepare("select count(*) v from sqlite_master where type='table'").get() as {
+        v: number
+      }
+    ).v
+    return [
+      { label: 'Tamanho (bytes)', value: String(pageCount * pageSize) },
+      { label: 'Tabelas', value: String(tables) }
+    ]
+  }
+
+  async tableDdl(_schema: string, table: string): Promise<string> {
+    const row = this.handle
+      .prepare(`select sql from sqlite_master where name = ? and type in ('table','view')`)
+      .get(table) as { sql: string } | undefined
+    return row?.sql ? `${row.sql};` : `-- DDL não encontrado para ${table}`
   }
 
   async listTables(): Promise<SchemaTable[]> {

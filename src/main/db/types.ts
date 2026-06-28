@@ -1,15 +1,18 @@
 import type { ColumnInfo, QueryResult, SchemaTable } from '@shared/types'
 
-import type { SqlStatement } from '@shared/types'
+import type { HealthMetric, RoleInfo, SessionInfo, SqlStatement } from '@shared/types'
 
 export type {
   ColumnInfo,
   ConnectionConfig,
+  HealthMetric,
   HistoryEntry,
   HistoryInput,
   QueryResult,
+  RoleInfo,
   SavedConnection,
   SchemaTable,
+  SessionInfo,
   SqlStatement,
   Workspace,
   WsEntry
@@ -24,4 +27,9 @@ export interface Driver {
   listColumns(schema: string, table: string): Promise<ColumnInfo[]>
   primaryKeys(schema: string, table: string): Promise<string[]>
   execBatch(statements: SqlStatement[]): Promise<void>
+  tableDdl(schema: string, table: string): Promise<string>
+  activeSessions(): Promise<SessionInfo[]>
+  killSession(pid: string | number): Promise<void>
+  listRoles(): Promise<RoleInfo[]>
+  serverHealth(): Promise<HealthMetric[]>
 }

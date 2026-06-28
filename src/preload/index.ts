@@ -12,7 +12,14 @@ const api: AppApi = {
     primaryKeys: (id: string, schema: string, table: string) =>
       ipcRenderer.invoke('db:primaryKeys', id, schema, table),
     execBatch: (id: string, statements: SqlStatement[]) =>
-      ipcRenderer.invoke('db:execBatch', id, statements)
+      ipcRenderer.invoke('db:execBatch', id, statements),
+    tableDdl: (id: string, schema: string, table: string) =>
+      ipcRenderer.invoke('db:tableDdl', id, schema, table),
+    activeSessions: (id: string) => ipcRenderer.invoke('db:activeSessions', id),
+    killSession: (id: string, pid: string | number) =>
+      ipcRenderer.invoke('db:killSession', id, pid),
+    listRoles: (id: string) => ipcRenderer.invoke('db:listRoles', id),
+    serverHealth: (id: string) => ipcRenderer.invoke('db:serverHealth', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),

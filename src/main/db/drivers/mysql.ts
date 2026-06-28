@@ -3,8 +3,11 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
+  RoleInfo,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -96,6 +99,58 @@ export class MysqlDriver implements Driver {
       await conn.rollback()
       throw e
     }
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    const [rows] = await this.connection.query(
+      `select id as pid, user, db as database, command as state, info as query, time * 1000 as durationMs
+         from information_schema.processlist order by time desc`
+    )
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      pid: r.pid as number,
+      user: (r.user as string) ?? null,
+      database: (r.database as string) ?? null,
+      state: (r.state as string) ?? null,
+      query: (r.query as string) ?? null,
+      durationMs: r.durationMs != null ? Number(r.durationMs) : null
+    }))
+  }
+
+  async killSession(pid: string | number): Promise<void> {
+    await this.connection.query(`KILL ${Number(pid)}`)
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const status = async (name: string): Promise<string> => {
+      const [r] = await this.connection.query(`show global status like '${name}'`)
+      return String((r as Record<string, string>[])[0]?.Value ?? '-')
+    }
+    const [sz] = await this.connection.query(
+      'select coalesce(sum(data_length+index_length),0) v from information_schema.tables where table_schema = database()'
+    )
+    return [
+      { label: 'Conexões', value: await status('Threads_connected') },
+      { label: 'Uptime (s)', value: await status('Uptime') },
+      { label: 'Queries', value: await status('Queries') },
+      {
+        label: 'Tamanho do banco (bytes)',
+        value: String((sz as Record<string, unknown>[])[0]?.v ?? '-')
+      }
+    ]
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    const [rows] = await this.connection.query(
+      `select distinct grantee as name from information_schema.user_privileges order by grantee`
+    )
+    return (rows as Record<string, string>[]).map((r) => ({ name: r.name }))
+  }
+
+  async tableDdl(schema: string, table: string): Promise<string> {
+    const [rows] = await this.connection.query(`SHOW CREATE TABLE \`${schema}\`.\`${table}\``)
+    const row = (rows as Record<string, string>[])[0]
+    const ddl = row?.['Create Table'] ?? row?.['Create View']
+    return ddl ? `${ddl};` : `-- DDL não encontrado para ${schema}.${table}`
   }
 
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {

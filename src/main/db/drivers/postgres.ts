@@ -3,8 +3,11 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
+  RoleInfo,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from '../types'
 
@@ -76,6 +79,73 @@ export class PostgresDriver implements Driver {
       await this.client.query('ROLLBACK')
       throw e
     }
+  }
+
+  async activeSessions(): Promise<SessionInfo[]> {
+    const res = await this.client.query(
+      `select pid, usename as "user", datname as database, state, query,
+              extract(epoch from (now() - query_start)) * 1000 as "durationMs"
+         from pg_stat_activity
+        where pid <> pg_backend_pid()
+        order by query_start nulls last`
+    )
+    return res.rows.map((r) => ({
+      pid: r.pid,
+      user: r.user ?? null,
+      database: r.database ?? null,
+      state: r.state ?? null,
+      query: r.query ?? null,
+      durationMs: r.durationMs != null ? Math.round(Number(r.durationMs)) : null
+    }))
+  }
+
+  async killSession(pid: string | number): Promise<void> {
+    await this.client.query('select pg_terminate_backend($1)', [pid])
+  }
+
+  async serverHealth(): Promise<HealthMetric[]> {
+    const one = async (sql: string): Promise<string> =>
+      String((await this.client.query(sql)).rows[0]?.v ?? '-')
+    return [
+      {
+        label: 'Conexões ativas',
+        value: await one('select count(*)::int v from pg_stat_activity')
+      },
+      {
+        label: 'Tamanho do banco',
+        value: await one('select pg_size_pretty(pg_database_size(current_database())) v')
+      },
+      {
+        label: 'Cache hit %',
+        value: await one(
+          'select round(100*sum(blks_hit)/nullif(sum(blks_hit+blks_read),0),2) v from pg_stat_database'
+        )
+      },
+      {
+        label: 'Uptime',
+        value: await one("select date_trunc('second', now()-pg_postmaster_start_time())::text v")
+      }
+    ]
+  }
+
+  async listRoles(): Promise<RoleInfo[]> {
+    const res = await this.client.query(
+      `select rolname as name, rolcanlogin as "canLogin", rolsuper as "isSuper"
+         from pg_roles order by rolname`
+    )
+    return res.rows.map((r) => ({
+      name: r.name,
+      canLogin: r.canLogin,
+      isSuper: r.isSuper
+    }))
+  }
+
+  async tableDdl(schema: string, table: string): Promise<string> {
+    const cols = await this.listColumns(schema, table)
+    const pk = await this.primaryKeys(schema, table)
+    const lines = cols.map((c) => `  "${c.name}" ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
+    if (pk.length) lines.push(`  PRIMARY KEY (${pk.map((c) => `"${c}"`).join(', ')})`)
+    return `CREATE TABLE "${schema}"."${table}" (\n${lines.join(',\n')}\n);`
   }
 
   async listColumns(schema: string, table: string): Promise<ColumnInfo[]> {

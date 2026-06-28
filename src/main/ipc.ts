@@ -27,6 +27,15 @@ export function registerDbIpc(): void {
   ipcMain.handle('db:execBatch', (_e, id: string, statements: SqlStatement[]) =>
     manager.execBatch(id, statements)
   )
+  ipcMain.handle('db:tableDdl', (_e, id: string, schema: string, table: string) =>
+    manager.tableDdl(id, schema, table)
+  )
+  ipcMain.handle('db:activeSessions', (_e, id: string) => manager.activeSessions(id))
+  ipcMain.handle('db:killSession', (_e, id: string, pid: string | number) =>
+    manager.killSession(id, pid)
+  )
+  ipcMain.handle('db:listRoles', (_e, id: string) => manager.listRoles(id))
+  ipcMain.handle('db:serverHealth', (_e, id: string) => manager.serverHealth(id))
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())

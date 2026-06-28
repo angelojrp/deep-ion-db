@@ -1,5 +1,6 @@
 node_modules
 out
 dist
+web/public/app.js
 package-lock.json
 *.md

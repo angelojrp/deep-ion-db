@@ -67,6 +67,29 @@ export interface SqlStatement {
   params: unknown[]
 }
 
+/** Métrica de saúde do servidor (dashboard). */
+export interface HealthMetric {
+  label: string
+  value: string
+}
+
+/** Usuário/role do servidor de banco. */
+export interface RoleInfo {
+  name: string
+  canLogin?: boolean
+  isSuper?: boolean
+}
+
+/** Sessão/atividade ativa no servidor de banco. */
+export interface SessionInfo {
+  pid: string | number
+  user: string | null
+  database: string | null
+  state: string | null
+  query: string | null
+  durationMs: number | null
+}
+
 /** Superfície exposta ao renderer via contextBridge. */
 export interface DbApi {
   connect(config: ConnectionConfig): Promise<{ id: string }>
@@ -76,6 +99,11 @@ export interface DbApi {
   listColumns(id: string, schema: string, table: string): Promise<ColumnInfo[]>
   primaryKeys(id: string, schema: string, table: string): Promise<string[]>
   execBatch(id: string, statements: SqlStatement[]): Promise<void>
+  tableDdl(id: string, schema: string, table: string): Promise<string>
+  activeSessions(id: string): Promise<SessionInfo[]>
+  killSession(id: string, pid: string | number): Promise<void>
+  listRoles(id: string): Promise<RoleInfo[]>
+  serverHealth(id: string): Promise<HealthMetric[]>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

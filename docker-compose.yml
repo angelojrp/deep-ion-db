@@ -1,0 +1,39 @@
+# Ambiente web empresarial do Deep Ion DB (épico #53).
+# Sobe o backend + um PostgreSQL de metadados. `docker compose up -d`
+services:
+  meta:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${META_DB_USER:-deepion}
+      POSTGRES_PASSWORD: ${META_DB_PASSWORD:-deepion}
+      POSTGRES_DB: ${META_DB_NAME:-deepion_meta}
+    volumes:
+      - meta-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${META_DB_USER:-deepion}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  server:
+    build: .
+    image: deep-ion-db-server:latest
+    environment:
+      PORT: 4000
+      META_DATABASE_URL: postgres://${META_DB_USER:-deepion}:${META_DB_PASSWORD:-deepion}@meta:5432/${META_DB_NAME:-deepion_meta}
+      META_ENCRYPTION_KEY: ${META_ENCRYPTION_KEY:-dev-insecure-key-change-me}
+      # Auth: para self-host pessoal, AUTH_DISABLED=true. Em produção, configure OIDC e use false.
+      AUTH_DISABLED: ${AUTH_DISABLED:-true}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      OIDC_JWKS_URI: ${OIDC_JWKS_URI:-}
+    ports:
+      - '${SERVER_PORT:-4000}:4000'
+    depends_on:
+      meta:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  meta-data:

@@ -2,8 +2,11 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  HealthMetric,
   QueryResult,
+  RoleInfo,
   SchemaTable,
+  SessionInfo,
   SqlStatement
 } from './types'
 import { PostgresDriver } from './drivers/postgres'
@@ -74,5 +77,25 @@ export class DbManager {
 
   execBatch(id: string, statements: SqlStatement[]): Promise<void> {
     return this.get(id).execBatch(statements)
+  }
+
+  tableDdl(id: string, schema: string, table: string): Promise<string> {
+    return this.get(id).tableDdl(schema, table)
+  }
+
+  activeSessions(id: string): Promise<SessionInfo[]> {
+    return this.get(id).activeSessions()
+  }
+
+  killSession(id: string, pid: string | number): Promise<void> {
+    return this.get(id).killSession(pid)
+  }
+
+  listRoles(id: string): Promise<RoleInfo[]> {
+    return this.get(id).listRoles()
+  }
+
+  serverHealth(id: string): Promise<HealthMetric[]> {
+    return this.get(id).serverHealth()
   }
 }

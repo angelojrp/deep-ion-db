@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deep Ion DB — web</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-size: 14px;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid #3c3c3c;
+        padding-bottom: 10px;
+      }
+      .muted {
+        color: #9a9a9a;
+      }
+      .me {
+        margin-left: auto;
+        color: #9a9a9a;
+        font-size: 12px;
+      }
+      .token-bar,
+      .toolbar {
+        display: flex;
+        gap: 8px;
+      }
+      input,
+      select,
+      textarea {
+        background: #2d2d30;
+        border: 1px solid #3c3c3c;
+        color: #d4d4d4;
+        padding: 7px 9px;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+      .token-bar input {
+        flex: 1;
+      }
+      textarea {
+        min-height: 120px;
+        font-family: 'Cascadia Code', Consolas, monospace;
+      }
+      button {
+        background: #0e639c;
+        color: #fff;
+        border: none;
+        padding: 7px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1177bb;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 12px;
+      }
+      th,
+      td {
+        border: 1px solid #3c3c3c;
+        padding: 4px 8px;
+        text-align: left;
+      }
+      th {
+        background: #2d2d30;
+      }
+      .error {
+        color: #f48771;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

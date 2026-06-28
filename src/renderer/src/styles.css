@@ -701,6 +701,46 @@ tr.row-new {
   color: var(--error);
 }
 
+.muted {
+  color: var(--text-dim);
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.health-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+}
+
+.health-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.health-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.sess-query {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 11px;
+}
+
 /* Workspace panel */
 .ws-panel {
   display: flex;
