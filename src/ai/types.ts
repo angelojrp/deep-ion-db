@@ -1,6 +1,6 @@
 /** Camada de integração com provedores de IA (épico #3, issue #24). */
 
-export type AIProviderKind = 'anthropic' | 'openai'
+export type AIProviderKind = 'anthropic' | 'openai' | 'gemini' | 'local'
 
 export interface AIMessage {
   role: 'user' | 'assistant'

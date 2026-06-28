@@ -4,21 +4,12 @@ import { useApi } from '../api'
 
 const DEFAULT_MODEL: Record<AIProviderKind, string> = {
   anthropic: 'claude-opus-4-8',
-  openai: 'gpt-4o'
+  openai: 'gpt-4o',
+  gemini: 'gemini-2.0-flash',
+  local: 'llama3.2'
 }
 
-const MODEL_OPTIONS: Record<AIProviderKind, { value: string; label: string }[]> = {
-  anthropic: [
-    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
-    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
-    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
-  ],
-  openai: [
-    { value: 'gpt-4o', label: 'GPT-4o' },
-    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
-    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
-  ]
-}
+const GEMINI_MODELS = ['gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash']
 
 export default function AiSettingsPanel({ onClose }: { onClose: () => void }): JSX.Element {
   const [kind, setKind] = useState<AIProviderKind>('anthropic')
@@ -26,8 +17,6 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
   const [baseUrl, setBaseUrl] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [hasKey, setHasKey] = useState(false)
-  const [sendSchema, setSendSchema] = useState(true)
-  const [sendExplain, setSendExplain] = useState(true)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const api = useApi()
@@ -41,8 +30,6 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
           setModel(c.model)
           setBaseUrl(c.baseUrl ?? '')
           setHasKey(c.hasKey)
-          setSendSchema(c.sendSchema)
-          setSendExplain(c.sendExplain)
         }
       })
       .catch(() => {})
@@ -51,10 +38,7 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
   function changeKind(k: AIProviderKind): void {
     setKind(k)
     setModel(DEFAULT_MODEL[k])
-  }
-
-  function isCustomModel(currentKind: AIProviderKind, currentModel: string): boolean {
-    return !MODEL_OPTIONS[currentKind].some((o) => o.value === currentModel)
+    setBaseUrl('')
   }
 
   async function save(): Promise<void> {
@@ -64,9 +48,7 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
         kind,
         model,
         baseUrl: baseUrl || undefined,
-        apiKey: apiKey || undefined,
-        sendSchema,
-        sendExplain
+        apiKey: apiKey || undefined
       })
       setHasKey(c.hasKey)
       setApiKey('')
@@ -77,8 +59,8 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
     }
   }
 
-  const modelOptions = MODEL_OPTIONS[kind]
-  const isCustom = isCustomModel(kind, model)
+  const needsApiKey = kind !== 'local'
+  const showBaseUrl = kind === 'openai' || kind === 'anthropic' || kind === 'local'
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -106,83 +88,75 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
             <select value={kind} onChange={(e) => changeKind(e.target.value as AIProviderKind)}>
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="openai">OpenAI</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="local">Local / Ollama (OpenAI-compatible)</option>
             </select>
           </label>
-          <label>
-            Modelo
-            <select
-              value={isCustom ? '__custom__' : model}
-              onChange={(e) => {
-                if (e.target.value !== '__custom__') {
-                  setModel(e.target.value)
-                }
-              }}
-            >
-              {modelOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-              <option value="__custom__">Personalizado…</option>
-            </select>
-          </label>
-          {isCustom && (
+
+          {/* Modelo */}
+          {kind === 'gemini' ? (
             <label>
-              Modelo personalizado
+              Modelo
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {GEMINI_MODELS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label>
+              Modelo
               <input
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder="ex: claude-3-5-sonnet-20241022"
+                placeholder={kind === 'local' ? 'ex.: llama3.2, mistral' : ''}
               />
             </label>
           )}
-          <label>
-            Endpoint (opcional — on-prem/compatível)
-            <input
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder={
-                kind === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com'
-              }
-            />
-          </label>
-          <label>
-            Chave de API {hasKey ? '(uma chave já está salva)' : ''}
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={hasKey ? '•••••• (deixe em branco para manter)' : 'cole a chave aqui'}
-            />
-          </label>
-          <fieldset style={{ border: 'none', padding: 0, margin: '8px 0 0' }}>
-            <legend style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>
-              Privacidade — contexto enviado à IA
-            </legend>
-            <label
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            >
+
+          {/* Endpoint */}
+          {showBaseUrl && (
+            <label>
+              {kind === 'local'
+                ? 'URL base do servidor local'
+                : 'Endpoint (opcional — on-prem/compatível)'}
               <input
-                type="checkbox"
-                checked={sendSchema}
-                onChange={(e) => setSendSchema(e.target.checked)}
+                value={baseUrl}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                placeholder={
+                  kind === 'anthropic'
+                    ? 'https://api.anthropic.com'
+                    : kind === 'openai'
+                      ? 'https://api.openai.com'
+                      : 'http://localhost:11434/v1'
+                }
               />
-              Enviar schema/DDL como contexto
             </label>
-            <label
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            >
+          )}
+
+          {/* Chave de API */}
+          {needsApiKey && (
+            <label>
+              Chave de API {hasKey ? '(uma chave já está salva)' : ''}
               <input
-                type="checkbox"
-                checked={sendExplain}
-                onChange={(e) => setSendExplain(e.target.checked)}
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={hasKey ? '•••••• (deixe em branco para manter)' : 'cole a chave aqui'}
               />
-              Enviar plano de EXPLAIN como contexto
             </label>
-            <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
-              Nunca são enviadas linhas/dados das suas tabelas — apenas estrutura e metadados.
+          )}
+
+          {/* Nota para local sem chave */}
+          {kind === 'local' && !hasKey && (
+            <p className="muted" style={{ fontSize: 11 }}>
+              Chave de API é opcional para servidores locais (Ollama, LM Studio). Informe apenas se
+              seu servidor exigir autenticação.
             </p>
-          </fieldset>
+          )}
+
           <button type="submit">Salvar</button>
           {saved && <p className="muted">Salvo ✓</p>}
           {err && <p className="form-error">{err}</p>}

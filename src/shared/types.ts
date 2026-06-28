@@ -206,7 +206,7 @@ export interface HistApi {
 }
 
 /** Integração com IA (épico #3). */
-export type AIProviderKind = 'anthropic' | 'openai'
+export type AIProviderKind = 'anthropic' | 'openai' | 'gemini' | 'local'
 
 export interface AIPublicConfig {
   kind: AIProviderKind
