@@ -8,7 +8,7 @@ import {
   statSync,
   writeFileSync
 } from 'fs'
-import { basename, join } from 'path'
+import { basename, join, resolve } from 'path'
 import { getLastWorkspace, setLastWorkspace } from './appSettings'
 import type { Workspace, WsEntry } from './db/types'
 
@@ -77,11 +77,25 @@ export async function openWorkspace(): Promise<Workspace | null> {
   return buildWorkspace(root)
 }
 
+/** Lança um erro se o path resolvido estiver fora do workspace atual. */
+function assertInsideWorkspace(filePath: string): void {
+  const workspaceRoot = getLastWorkspace()
+  if (!workspaceRoot) throw new Error('Nenhum workspace aberto.')
+  const resolved = resolve(filePath)
+  // Garante separador final para evitar falsos positivos (ex.: /ws-extra vs /ws)
+  const root = workspaceRoot.endsWith('/') ? workspaceRoot : `${workspaceRoot}/`
+  if (!resolved.startsWith(root) && resolved !== workspaceRoot) {
+    throw new Error('Acesso negado: caminho fora do workspace')
+  }
+}
+
 export function readFile(path: string): string {
+  assertInsideWorkspace(path)
   return readFileSync(path, 'utf-8')
 }
 
 export function writeFile(path: string, content: string): void {
+  assertInsideWorkspace(path)
   mkdirSync(join(path, '..'), { recursive: true })
   writeFileSync(path, content, 'utf-8')
 }
@@ -94,6 +108,7 @@ export function createFile(dir: string, name: string): WsEntry {
 }
 
 export function removeEntry(path: string): void {
+  assertInsideWorkspace(path)
   rmSync(path, { recursive: true, force: true })
 }
 
