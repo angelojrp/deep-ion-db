@@ -87,6 +87,13 @@ describe('MysqlDriver', () => {
     })
   })
 
+  // Helper: query() chama conn.query('SELECT CONNECTION_ID()') antes da query real
+  function mockQuerySequence(result: [unknown, unknown]) {
+    mysqlConn.query
+      .mockResolvedValueOnce([[{ id: 12345 }], []]) // CONNECTION_ID()
+      .mockResolvedValueOnce(result) // query do usuário
+  }
+
   describe('query()', () => {
     it('retorna QueryResult correto para SELECT (array de rows)', async () => {
       const fakeRows = [
@@ -94,7 +101,7 @@ describe('MysqlDriver', () => {
         { id: 2, name: 'Bob' }
       ]
       const fakeFields = [{ name: 'id' }, { name: 'name' }]
-      mysqlPool.query.mockResolvedValue([fakeRows, fakeFields])
+      mockQuerySequence([fakeRows, fakeFields])
 
       const result = await driver.query('SELECT id, name FROM users')
 
@@ -108,7 +115,7 @@ describe('MysqlDriver', () => {
 
     it('retorna rowCount correto para DML (ResultSetHeader)', async () => {
       const header = { affectedRows: 3, insertId: 0 }
-      mysqlPool.query.mockResolvedValue([header, undefined])
+      mockQuerySequence([header, undefined])
 
       const result = await driver.query('DELETE FROM users WHERE active = 0')
 
@@ -119,7 +126,9 @@ describe('MysqlDriver', () => {
     })
 
     it('lança erro para SQL inválido', async () => {
-      mysqlPool.query.mockRejectedValue(new Error("Table 'testdb.ghost' doesn't exist"))
+      mysqlConn.query
+        .mockResolvedValueOnce([[{ id: 12345 }], []]) // CONNECTION_ID()
+        .mockRejectedValueOnce(new Error("Table 'testdb.ghost' doesn't exist"))
 
       await expect(driver.query('SELECT * FROM ghost')).rejects.toThrow(
         "Table 'testdb.ghost' doesn't exist"
@@ -128,7 +137,7 @@ describe('MysqlDriver', () => {
 
     it('retorna 0 em affectedRows quando undefined', async () => {
       const header = { affectedRows: undefined, insertId: 0 }
-      mysqlPool.query.mockResolvedValue([header, undefined])
+      mockQuerySequence([header, undefined])
 
       const result = await driver.query('CREATE TABLE new_table (id INT)')
 

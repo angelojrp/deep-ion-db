@@ -13,6 +13,7 @@ function mockFetch(payload: unknown, ok = true, status = 200): { fn: typeof fetc
     return Promise.resolve({
       ok,
       status,
+      headers: { get: (_: string) => null },
       json: async () => payload,
       text: async () => (typeof payload === 'string' ? payload : JSON.stringify(payload))
     })
@@ -44,13 +45,15 @@ describe('AnthropicProvider', () => {
     expect(body.messages).toEqual([{ role: 'user', content: 'gere um select' }])
   })
 
-  it('lança erro em resposta não-ok', async () => {
+  it('lança erro categorizado em resposta não-ok', async () => {
     const { fn } = mockFetch('overloaded', false, 529)
     const provider = createProvider(
       { kind: 'anthropic', apiKey: 'k', model: 'claude-opus-4-8' },
       fn
     )
-    await expect(provider.chat([{ role: 'user', content: 'x' }])).rejects.toThrow('Anthropic 529')
+    await expect(provider.chat([{ role: 'user', content: 'x' }])).rejects.toThrow(
+      /indisponível|529/i
+    )
   })
 })
 
@@ -87,6 +90,8 @@ describe('OpenAIProvider', () => {
   it('lança erro em resposta não-ok', async () => {
     const { fn } = mockFetch('bad', false, 401)
     const provider = createProvider({ kind: 'openai', apiKey: 'k', model: 'gpt-4o' }, fn)
-    await expect(provider.chat([{ role: 'user', content: 'x' }])).rejects.toThrow('OpenAI 401')
+    await expect(provider.chat([{ role: 'user', content: 'x' }])).rejects.toThrow(
+      /inválida|sem permissão|401/i
+    )
   })
 })

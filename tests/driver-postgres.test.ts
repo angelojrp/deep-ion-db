@@ -70,9 +70,16 @@ describe('PostgresDriver', () => {
     })
   })
 
+  // Helper: o driver faz client.query('SELECT pg_backend_pid()') antes da query real
+  function mockQuerySequence(result: unknown) {
+    pgPoolClient.query
+      .mockResolvedValueOnce({ rows: [{ pid: 12345 }] }) // pg_backend_pid()
+      .mockResolvedValueOnce(result) // query do usuário
+  }
+
   describe('query()', () => {
     it('retorna QueryResult correto para SELECT', async () => {
-      pgPool.query.mockResolvedValue({
+      mockQuerySequence({
         fields: [{ name: 'id' }, { name: 'name' }],
         rows: [
           { id: 1, name: 'Alice' },
@@ -93,7 +100,7 @@ describe('PostgresDriver', () => {
     })
 
     it('retorna rowCount correto para INSERT', async () => {
-      pgPool.query.mockResolvedValue({
+      mockQuerySequence({
         fields: [],
         rows: [],
         rowCount: 1,
@@ -108,7 +115,7 @@ describe('PostgresDriver', () => {
     })
 
     it('lida com resultado array (múltiplos statements) — usa o último', async () => {
-      pgPool.query.mockResolvedValue([
+      mockQuerySequence([
         { fields: [], rows: [], rowCount: 0, command: 'CREATE' },
         {
           fields: [{ name: 'n' }],
@@ -125,7 +132,9 @@ describe('PostgresDriver', () => {
     })
 
     it('propaga erro do cliente', async () => {
-      pgPool.query.mockRejectedValue(new Error('connection refused'))
+      pgPoolClient.query
+        .mockResolvedValueOnce({ rows: [{ pid: 12345 }] }) // pg_backend_pid()
+        .mockRejectedValueOnce(new Error('connection refused'))
 
       await expect(driver.query('SELECT 1')).rejects.toThrow('connection refused')
     })
