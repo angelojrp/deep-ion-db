@@ -73,6 +73,16 @@ export interface HealthMetric {
   value: string
 }
 
+export interface IndexInfo {
+  name: string
+  detail?: string
+}
+
+export interface RoutineInfo {
+  name: string
+  type: string
+}
+
 /** Chave estrangeira (para diagrama ER). */
 export interface ForeignKey {
   table: string
@@ -113,6 +123,8 @@ export interface DbApi {
   listRoles(id: string): Promise<RoleInfo[]>
   serverHealth(id: string): Promise<HealthMetric[]>
   foreignKeys(id: string): Promise<ForeignKey[]>
+  indexes(id: string, schema: string, table: string): Promise<IndexInfo[]>
+  routines(id: string, schema: string): Promise<RoutineInfo[]>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */

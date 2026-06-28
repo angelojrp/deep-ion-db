@@ -5,8 +5,10 @@ import type {
   Driver,
   ForeignKey,
   HealthMetric,
+  IndexInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -85,6 +87,19 @@ export class SqliteDriver implements Driver {
 
   async killSession(): Promise<void> {
     throw new Error('SQLite (arquivo local) não possui sessões.')
+  }
+
+  async indexes(_schema: string, table: string): Promise<IndexInfo[]> {
+    const quoted = `"${table.replace(/"/g, '""')}"`
+    const rows = this.handle.prepare(`PRAGMA index_list(${quoted})`).all() as {
+      name: string
+      unique: number
+    }[]
+    return rows.map((r) => ({ name: r.name, detail: r.unique ? 'unique' : undefined }))
+  }
+
+  async routines(): Promise<RoutineInfo[]> {
+    return []
   }
 
   async listRoles(): Promise<RoleInfo[]> {

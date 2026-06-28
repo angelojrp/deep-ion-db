@@ -4,8 +4,10 @@ import type {
   Driver,
   ForeignKey,
   HealthMetric,
+  IndexInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -102,5 +104,13 @@ export class DbManager {
 
   foreignKeys(id: string): Promise<ForeignKey[]> {
     return this.get(id).foreignKeys()
+  }
+
+  indexes(id: string, schema: string, table: string): Promise<IndexInfo[]> {
+    return this.get(id).indexes(schema, table)
+  }
+
+  routines(id: string, schema: string): Promise<RoutineInfo[]> {
+    return this.get(id).routines(schema)
   }
 }
