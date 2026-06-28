@@ -12,6 +12,8 @@ import {
 } from './dataSources'
 import { vaultUsingDefaultKey } from './vault'
 import { type AuthUser, authDisabled, devUser, upsertUser, verifyToken } from './auth'
+import { createGrant, deleteGrant, getGrantMode, isReadOnlySql, listGrants } from './grants'
+import { audit, listAudit } from './audit'
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -134,7 +136,9 @@ async function main(): Promise<void> {
       reply.code(400)
       return { error: 'name é obrigatório.' }
     }
-    return await createDataSource(req.body)
+    const ds = await createDataSource(req.body)
+    await audit(req.user.id, ds.id, 'data_source.create', { name: ds.name })
+    return ds
   })
 
   app.delete<{ Params: { id: string } }>('/api/data-sources/:id', async (req, reply) => {
@@ -143,7 +147,113 @@ async function main(): Promise<void> {
       return { error: 'requer papel admin' }
     }
     await deleteDataSource(req.params.id)
+    await audit(req.user.id, req.params.id, 'data_source.delete')
     return { ok: true }
+  })
+
+  // ----- Grants (#60) -----
+  app.get('/api/grants', async (req) => {
+    const all = req.user?.role === 'admin'
+    return { grants: await listGrants(all ? undefined : req.user?.id) }
+  })
+
+  app.post<{ Body: { userId: string; dataSourceId: string; mode?: string } }>(
+    '/api/grants',
+    async (req, reply) => {
+      if (req.user?.role !== 'admin') {
+        reply.code(403)
+        return { error: 'requer papel admin' }
+      }
+      const g = await createGrant(req.body.userId, req.body.dataSourceId, req.body.mode ?? 'read')
+      await audit(req.user.id, req.body.dataSourceId, 'grant.create', {
+        userId: req.body.userId,
+        mode: g.mode
+      })
+      return g
+    }
+  )
+
+  app.delete<{ Params: { id: string } }>('/api/grants/:id', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
+    await deleteGrant(req.params.id)
+    return { ok: true }
+  })
+
+  // ----- Conexão proxied (#61): usa o banco sem expor host/usuário/senha -----
+  app.post<{ Params: { id: string }; Body: { sql: string } }>(
+    '/api/data-sources/:id/query',
+    async (req, reply) => {
+      const user = req.user!
+      const mode = user.role === 'admin' ? 'readwrite' : await getGrantMode(user.id, req.params.id)
+      if (!mode) {
+        await audit(user.id, req.params.id, 'query.denied', { reason: 'sem concessão' })
+        reply.code(403)
+        return { error: 'sem acesso a este data source' }
+      }
+      if (mode === 'read' && !isReadOnlySql(req.body.sql)) {
+        await audit(user.id, req.params.id, 'query.denied', { reason: 'somente-leitura' })
+        reply.code(403)
+        return { error: 'concessão somente-leitura: apenas SELECT/WITH/EXPLAIN' }
+      }
+      const config = await getDataSourceConfig(req.params.id)
+      if (!config) {
+        reply.code(404)
+        return { error: 'data source não encontrado' }
+      }
+      const driver = new PostgresDriver(config)
+      try {
+        await driver.connect()
+        const result = await driver.query(req.body.sql)
+        await audit(user.id, req.params.id, 'query', {
+          rowCount: result.rowCount,
+          readonly: mode === 'read'
+        })
+        return result
+      } catch (e) {
+        await audit(user.id, req.params.id, 'query.error', {
+          error: e instanceof Error ? e.message : String(e)
+        })
+        reply.code(400)
+        return { error: e instanceof Error ? e.message : String(e) }
+      } finally {
+        await driver.disconnect().catch(() => {})
+      }
+    }
+  )
+
+  app.post<{ Params: { id: string } }>('/api/data-sources/:id/tables', async (req, reply) => {
+    const user = req.user!
+    const mode = user.role === 'admin' ? 'readwrite' : await getGrantMode(user.id, req.params.id)
+    if (!mode) {
+      reply.code(403)
+      return { error: 'sem acesso a este data source' }
+    }
+    const config = await getDataSourceConfig(req.params.id)
+    if (!config) {
+      reply.code(404)
+      return { error: 'data source não encontrado' }
+    }
+    const driver = new PostgresDriver(config)
+    try {
+      await driver.connect()
+      const tables = await driver.listTables()
+      await audit(user.id, req.params.id, 'tables')
+      return { tables }
+    } finally {
+      await driver.disconnect().catch(() => {})
+    }
+  })
+
+  // ----- Auditoria (#63) -----
+  app.get('/api/audit', async (req, reply) => {
+    if (req.user?.role !== 'admin') {
+      reply.code(403)
+      return { error: 'requer papel admin' }
+    }
+    return { entries: await listAudit() }
   })
 
   app.post<{ Params: { id: string } }>('/api/data-sources/:id/test', async (req, reply) => {
