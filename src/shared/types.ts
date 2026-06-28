@@ -1,6 +1,6 @@
 /** Tipos compartilhados entre main, preload e renderer. */
 
-export type DbKind = 'postgres' | 'mysql' | 'sqlite'
+export type DbKind = 'postgres' | 'mysql' | 'sqlite' | 'mssql' | 'oracle'
 
 export interface ConnectionConfig {
   id: string
@@ -73,6 +73,31 @@ export interface HealthMetric {
   value: string
 }
 
+export interface IndexInfo {
+  name: string
+  detail?: string
+}
+
+export interface RoutineInfo {
+  name: string
+  type: string
+}
+
+export interface JobInfo {
+  name: string
+  schedule?: string
+  command?: string
+  enabled?: boolean
+}
+
+/** Chave estrangeira (para diagrama ER). */
+export interface ForeignKey {
+  table: string
+  column: string
+  refTable: string
+  refColumn: string
+}
+
 /** Usuário/role do servidor de banco. */
 export interface RoleInfo {
   name: string
@@ -104,6 +129,11 @@ export interface DbApi {
   killSession(id: string, pid: string | number): Promise<void>
   listRoles(id: string): Promise<RoleInfo[]>
   serverHealth(id: string): Promise<HealthMetric[]>
+  foreignKeys(id: string): Promise<ForeignKey[]>
+  indexes(id: string, schema: string, table: string): Promise<IndexInfo[]>
+  routines(id: string, schema: string): Promise<RoutineInfo[]>
+  jobs(id: string): Promise<JobInfo[]>
+  backup(id: string): Promise<{ ok: boolean; path?: string; error?: string }>
 }
 
 /** Gerência de conexões salvas (senha guardada com segurança no main). */
@@ -137,6 +167,7 @@ export interface WsApi {
   create(dir: string, name: string): Promise<WsEntry>
   remove(path: string): Promise<void>
   saveAs(defaultName: string, content: string): Promise<string | null>
+  openFile(): Promise<{ name: string; content: string } | null>
 }
 
 /** Entrada do histórico de execução de queries. */
@@ -162,9 +193,38 @@ export interface HistApi {
   clear(): Promise<void>
 }
 
+/** Integração com IA (épico #3). */
+export type AIProviderKind = 'anthropic' | 'openai'
+
+export interface AIPublicConfig {
+  kind: AIProviderKind
+  model: string
+  baseUrl?: string
+  hasKey: boolean
+}
+
+export interface AiSettingsInput {
+  kind: AIProviderKind
+  model?: string
+  baseUrl?: string
+  apiKey?: string
+}
+
+export interface AiChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AiApi {
+  getConfig(): Promise<AIPublicConfig | null>
+  setConfig(input: AiSettingsInput): Promise<AIPublicConfig>
+  chat(messages: AiChatMessage[], system?: string): Promise<string>
+}
+
 export interface AppApi {
   db: DbApi
   conn: ConnApi
   ws: WsApi
   hist: HistApi
+  ai: AiApi
 }

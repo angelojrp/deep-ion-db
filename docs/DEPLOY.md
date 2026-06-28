@@ -50,6 +50,8 @@ Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASS
   `OIDC_ISSUER=https://idp.exemplo/realms/seu-realm`, `OIDC_AUDIENCE=deepion`. O JWKS é derivado do
   issuer (Keycloak) ou informe `OIDC_JWKS_URI`. O primeiro usuário autenticado vira **admin**; os
   demais entram como `user` (RBAC). Defina sempre `META_ENCRYPTION_KEY`.
+- **Guia passo a passo do Keycloak** (realm dedicado, client + audience mapper, `OIDC_ISSUER` vs
+  `OIDC_JWKS_URI` em containers e realm pronto para import): veja [keycloak.md](./keycloak.md).
 
 ---
 
@@ -57,6 +59,11 @@ Variáveis (`.env`): `SERVER_PORT` (padrão 4000), `META_DB_USER`, `META_DB_PASS
 
 Pré-requisitos: um cluster (Docker Desktop, kind, minikube ou gerenciado) e `kubectl`.
 Manifests em [`deploy/k8s/`](../deploy/k8s).
+
+> **Imagem publicada (Docker Hub).** O workflow `.github/workflows/dockerhub.yml` publica
+> `<DOCKERHUB_USERNAME>/deep-ion-db-server` (multi-arch amd64/arm64) a cada tag `v*`, desde que os
+> secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN` estejam configurados. Aí o compose/k8s podem usar a
+> imagem publicada em vez de buildar localmente.
 
 ### 1. Publique a imagem do server
 

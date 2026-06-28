@@ -11,6 +11,19 @@
   --null: #6a9955;
 }
 
+:root[data-theme='light'] {
+  --bg: #f6f7f9;
+  --bg-alt: #ffffff;
+  --bg-elev: #eceef1;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-dim: #656d76;
+  --accent: #0969da;
+  --accent-hover: #0a64c8;
+  --error: #cf222e;
+  --null: #0a7a2f;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -47,10 +60,17 @@ body {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 15px;
   font-weight: 600;
   margin: 0;
   color: #fff;
+}
+
+.brand-logo {
+  border-radius: 5px;
 }
 
 .conn-form {
@@ -703,6 +723,64 @@ tr.row-new {
 
 .muted {
   color: var(--text-dim);
+}
+
+/* Assistente IA */
+.ai-chat {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 14px;
+  max-height: 56vh;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-turn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.ai-turn.user {
+  background: var(--bg-elev);
+}
+
+.ai-role {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.ai-text {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.ai-turn.assistant .ai-text {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+}
+
+.ai-input {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.ai-input textarea {
+  flex: 1;
+  min-height: 52px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 13px;
 }
 
 .health-grid {

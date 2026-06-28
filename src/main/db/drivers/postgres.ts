@@ -3,9 +3,13 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
+  IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -126,6 +130,49 @@ export class PostgresDriver implements Driver {
         value: await one("select date_trunc('second', now()-pg_postmaster_start_time())::text v")
       }
     ]
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const res = await this.client.query(
+      `select tc.table_name as "table", kcu.column_name as "column",
+              ccu.table_name as "refTable", ccu.column_name as "refColumn"
+         from information_schema.table_constraints tc
+         join information_schema.key_column_usage kcu
+           on kcu.constraint_name = tc.constraint_name and kcu.table_schema = tc.table_schema
+         join information_schema.constraint_column_usage ccu
+           on ccu.constraint_name = tc.constraint_name
+        where tc.constraint_type = 'FOREIGN KEY'
+          and tc.table_schema not in ('pg_catalog', 'information_schema')`
+    )
+    return res.rows as ForeignKey[]
+  }
+
+  async jobs(): Promise<JobInfo[]> {
+    try {
+      const res = await this.client.query(
+        `select jobname as name, schedule, command, active as enabled from cron.job order by jobname`
+      )
+      return res.rows as JobInfo[]
+    } catch {
+      return [] // pg_cron não instalado
+    }
+  }
+
+  async indexes(schema: string, table: string): Promise<IndexInfo[]> {
+    const res = await this.client.query(
+      `select indexname as name, indexdef as detail from pg_indexes where schemaname = $1 and tablename = $2`,
+      [schema, table]
+    )
+    return res.rows as IndexInfo[]
+  }
+
+  async routines(schema: string): Promise<RoutineInfo[]> {
+    const res = await this.client.query(
+      `select routine_name as name, routine_type as type from information_schema.routines
+        where specific_schema = $1 order by routine_name`,
+      [schema]
+    )
+    return res.rows as RoutineInfo[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

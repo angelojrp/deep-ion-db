@@ -3,9 +3,13 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
+  IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -137,6 +141,48 @@ export class MysqlDriver implements Driver {
         value: String((sz as Record<string, unknown>[])[0]?.v ?? '-')
       }
     ]
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const [rows] = await this.connection.query(
+      `select table_name as \`table\`, column_name as \`column\`,
+              referenced_table_name as refTable, referenced_column_name as refColumn
+         from information_schema.key_column_usage
+        where referenced_table_name is not null and table_schema = database()`
+    )
+    return rows as ForeignKey[]
+  }
+
+  async jobs(): Promise<JobInfo[]> {
+    const [rows] = await this.connection.query(
+      `select event_name as name,
+              concat(coalesce(interval_value,''),' ',coalesce(interval_field,'')) as schedule,
+              event_definition as command, (status = 'ENABLED') as enabled
+         from information_schema.events where event_schema = database()`
+    )
+    return (rows as Record<string, unknown>[]).map((r) => ({
+      name: r.name as string,
+      schedule: ((r.schedule as string) || '').trim() || undefined,
+      command: r.command as string,
+      enabled: !!r.enabled
+    }))
+  }
+
+  async indexes(schema: string, table: string): Promise<IndexInfo[]> {
+    const [rows] = await this.connection.query(
+      `select distinct index_name as name from information_schema.statistics
+        where table_schema = ? and table_name = ?`,
+      [schema, table]
+    )
+    return (rows as Record<string, string>[]).map((r) => ({ name: r.name }))
+  }
+
+  async routines(): Promise<RoutineInfo[]> {
+    const [rows] = await this.connection.query(
+      `select routine_name as name, routine_type as type from information_schema.routines
+        where routine_schema = database() order by routine_name`
+    )
+    return rows as RoutineInfo[]
   }
 
   async listRoles(): Promise<RoleInfo[]> {

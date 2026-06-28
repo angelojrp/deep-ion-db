@@ -17,6 +17,10 @@ import HistoryPanel from './components/HistoryPanel'
 import SessionsPanel from './components/SessionsPanel'
 import RolesPanel from './components/RolesPanel'
 import HealthPanel from './components/HealthPanel'
+import AiSettingsPanel from './components/AiSettingsPanel'
+import AiAssistantPanel from './components/AiAssistantPanel'
+import DiffPanel from './components/DiffPanel'
+import JobsPanel from './components/JobsPanel'
 import { setActiveSchema } from './sqlCompletion'
 
 type TabKind = 'sql' | 'markdown'
@@ -103,6 +107,19 @@ export default function App(): JSX.Element {
   const [showSessions, setShowSessions] = useState(false)
   const [showRoles, setShowRoles] = useState(false)
   const [showHealth, setShowHealth] = useState(false)
+  const [showAi, setShowAi] = useState(false)
+  const [showAssistant, setShowAssistant] = useState(false)
+  const [showDiff, setShowDiff] = useState(false)
+  const [showJobs, setShowJobs] = useState(false)
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
+  )
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('theme', theme)
+  }, [theme])
+  const monacoTheme = theme === 'light' ? 'vs' : 'vs-dark'
 
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const activeConn = connections.find((c) => c.id === activeTab?.connectionId) ?? null
@@ -358,6 +375,37 @@ export default function App(): JSX.Element {
     [updateActiveTab]
   )
 
+  const openDoc = useCallback((title: string, content: string) => {
+    setTabs((prev) => {
+      const tab = { ...createTab(title, 'markdown'), content }
+      setActiveTabId(tab.id)
+      return [...prev, tab]
+    })
+  }, [])
+
+  const generateEr = useCallback(async () => {
+    const cid = activeTab?.connectionId
+    if (!cid) return
+    const [tables, fks] = await Promise.all([
+      window.api.db.listTables(cid),
+      window.api.db.foreignKeys(cid)
+    ])
+    const san = (s: string): string => s.replace(/[^a-zA-Z0-9_]/g, '_')
+    const lines = [
+      '# Diagrama ER',
+      '',
+      '> Renderiza em visualizadores compatíveis com Mermaid (GitHub, VS Code, etc.).',
+      '',
+      '```mermaid',
+      'erDiagram'
+    ]
+    for (const t of tables) lines.push(`  ${san(t.name)} {`, `  }`)
+    for (const fk of fks)
+      lines.push(`  ${san(fk.refTable)} ||--o{ ${san(fk.table)} : "${fk.column}"`)
+    lines.push('```')
+    openDoc('er.md', lines.join('\n'))
+  }, [activeTab, openDoc])
+
   return (
     <div className="app">
       <Sidebar
@@ -376,6 +424,8 @@ export default function App(): JSX.Element {
         onOpenFile={openFile}
         onNewFile={newFile}
         onDeleteFile={deleteFile}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
       />
 
       <main className="workspace">
@@ -393,6 +443,7 @@ export default function App(): JSX.Element {
             value={activeTab.content}
             onChange={onContentChange}
             onSave={saveActive}
+            theme={monacoTheme}
           />
         ) : (
           <div className="sql-pane">
@@ -450,6 +501,58 @@ export default function App(): JSX.Element {
               >
                 Saúde
               </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowDiff(true)}
+                disabled={connections.length < 2}
+                title="Comparar schemas (requer 2 conexões)"
+              >
+                Diff
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={generateEr}
+                disabled={!activeTab?.connectionId}
+                title="Diagrama ER (Mermaid)"
+              >
+                ER
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowJobs(true)}
+                disabled={!activeTab?.connectionId}
+                title="Jobs agendados"
+              >
+                Jobs
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={async () => {
+                  const cid = activeTab?.connectionId
+                  if (!cid) return
+                  const r = await window.api.db.backup(cid)
+                  if (r.ok) window.alert(`Backup salvo em ${r.path}`)
+                  else if (r.error) window.alert('Backup falhou: ' + r.error)
+                }}
+                disabled={!activeTab?.connectionId}
+                title="Backup do banco (pg_dump/mysqldump/cópia)"
+              >
+                Backup
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowAssistant(true)}
+                title="Assistente IA (NL→SQL, explicar, chat)"
+              >
+                ✨ Assistente
+              </button>
+              <button
+                className="ghost-btn"
+                onClick={() => setShowAi(true)}
+                title="Configuração de IA"
+              >
+                IA
+              </button>
               <span className="hint">Ctrl/Cmd + Enter · seleção/statement</span>
               <select
                 className="conn-select"
@@ -477,6 +580,7 @@ export default function App(): JSX.Element {
                   onRun={runQuery}
                   onSave={saveActive}
                   dialect={activeConn?.kind}
+                  theme={monacoTheme}
                   apiRef={editorApi}
                 />
               )}
@@ -521,6 +625,31 @@ export default function App(): JSX.Element {
 
       {showHealth && activeTab?.connectionId && (
         <HealthPanel connectionId={activeTab.connectionId} onClose={() => setShowHealth(false)} />
+      )}
+
+      {showAi && <AiSettingsPanel onClose={() => setShowAi(false)} />}
+
+      {showDiff && (
+        <DiffPanel
+          connections={connections}
+          onOpenDoc={openDoc}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
+
+      {showJobs && activeTab?.connectionId && (
+        <JobsPanel connectionId={activeTab.connectionId} onClose={() => setShowJobs(false)} />
+      )}
+
+      {showAssistant && (
+        <AiAssistantPanel
+          connectionId={activeTab?.connectionId ?? null}
+          kind={activeConn?.kind}
+          currentSql={activeTab?.content ?? ''}
+          onInsertSql={(sql) => updateActiveTab({ content: sql, dirty: true })}
+          onOpenDoc={openDoc}
+          onClose={() => setShowAssistant(false)}
+        />
       )}
     </div>
   )

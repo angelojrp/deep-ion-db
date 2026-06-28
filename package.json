@@ -1,6 +1,6 @@
 {
   "name": "deep-ion-db",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "IDE para bancos relacionais (estilo DBeaver) — Electron + React + TypeScript",
   "main": "./out/main/index.js",
   "author": "angelojrp@gmail.com",
@@ -30,7 +30,9 @@
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
-    "dist:linux": "npm run build && electron-builder --linux"
+    "dist:linux": "npm run build && electron-builder --linux",
+    "mcp:server": "tsx src/mcp/server.ts",
+    "icons": "node scripts/gen-icons.mjs"
   },
   "repository": {
     "type": "git",
@@ -39,25 +41,32 @@
   "dependencies": {
     "@fastify/cors": "^11.2.0",
     "@fastify/static": "^9.1.3",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-table": "^8.21.3",
     "better-sqlite3": "^12.11.1",
     "dompurify": "^3.4.11",
+    "electron-updater": "^6.8.9",
     "fastify": "^5.8.5",
     "jose": "^6.2.3",
     "marked": "^18.0.5",
     "monaco-editor": "^0.55.1",
+    "mssql": "^12.6.0",
     "mysql2": "^3.22.5",
+    "oracledb": "^7.0.0",
     "pg": "^8.22.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sql-formatter": "^15.8.2"
+    "sql-formatter": "^15.8.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "@eslint/js": "^10.0.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/mssql": "^12.3.0",
     "@types/node": "^26.0.1",
+    "@types/oracledb": "^7.0.1",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
@@ -69,7 +78,9 @@
     "eslint": "^10.6.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "png-to-ico": "^3.0.1",
     "prettier": "^3.9.0",
+    "sharp": "^0.35.2",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0",

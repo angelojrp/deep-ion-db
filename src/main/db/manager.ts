@@ -2,9 +2,13 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
+  IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -12,10 +16,17 @@ import type {
 import { PostgresDriver } from './drivers/postgres'
 import { MysqlDriver } from './drivers/mysql'
 import { SqliteDriver } from './drivers/sqlite'
+import { MssqlDriver } from './drivers/mssql'
+import { OracleDriver } from './drivers/oracle'
 
 /** Mantém as conexões abertas e roteia as operações para o driver certo. */
 export class DbManager {
   private drivers = new Map<string, Driver>()
+  private configs = new Map<string, ConnectionConfig>()
+
+  getConfig(id: string): ConnectionConfig | undefined {
+    return this.configs.get(id)
+  }
 
   private create(config: ConnectionConfig): Driver {
     switch (config.kind) {
@@ -25,6 +36,10 @@ export class DbManager {
         return new MysqlDriver(config)
       case 'sqlite':
         return new SqliteDriver(config)
+      case 'mssql':
+        return new MssqlDriver(config)
+      case 'oracle':
+        return new OracleDriver(config)
       default:
         throw new Error(`Tipo de banco não suportado: ${(config as ConnectionConfig).kind}`)
     }
@@ -37,6 +52,7 @@ export class DbManager {
     const driver = this.create(config)
     await driver.connect()
     this.drivers.set(config.id, driver)
+    this.configs.set(config.id, config)
     return { id: config.id }
   }
 
@@ -45,6 +61,7 @@ export class DbManager {
     if (driver) {
       await driver.disconnect()
       this.drivers.delete(id)
+      this.configs.delete(id)
     }
   }
 
@@ -97,5 +114,21 @@ export class DbManager {
 
   serverHealth(id: string): Promise<HealthMetric[]> {
     return this.get(id).serverHealth()
+  }
+
+  foreignKeys(id: string): Promise<ForeignKey[]> {
+    return this.get(id).foreignKeys()
+  }
+
+  indexes(id: string, schema: string, table: string): Promise<IndexInfo[]> {
+    return this.get(id).indexes(schema, table)
+  }
+
+  routines(id: string, schema: string): Promise<RoutineInfo[]> {
+    return this.get(id).routines(schema)
+  }
+
+  jobs(id: string): Promise<JobInfo[]> {
+    return this.get(id).jobs()
   }
 }

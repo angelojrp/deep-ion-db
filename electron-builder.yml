@@ -26,6 +26,7 @@ publish:
   releaseType: release
 
 win:
+  icon: build/icon.ico
   target: nsis
   executableName: deep-ion-db
   artifactName: ${productName}-${version}-Windows-${arch}-setup.${ext}
@@ -39,13 +40,22 @@ nsis:
   uninstallDisplayName: ${productName}
 
 mac:
+  icon: build/icon.png
   target:
     - dmg
     - zip
   category: public.app-category.developer-tools
   artifactName: ${productName}-${version}-macOS-${arch}.${ext}
+  # Assinatura/notarização (ver docs/CODESIGN.md). Só executam quando há
+  # certificado (CSC_LINK) e credenciais Apple (APPLE_ID/...) no ambiente.
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  notarize: true
 
 linux:
+  icon: build/icon.png
   target:
     - AppImage
     - deb

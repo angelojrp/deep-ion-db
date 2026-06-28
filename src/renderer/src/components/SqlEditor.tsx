@@ -16,13 +16,18 @@ interface Props {
   onRun: () => void
   onSave?: () => void
   dialect?: DbKind
+  theme?: string
   apiRef?: MutableRefObject<SqlEditorApi | null>
 }
 
-function mapDialect(kind: DbKind | undefined): 'postgresql' | 'mysql' | 'sqlite' | 'sql' {
+function mapDialect(
+  kind: DbKind | undefined
+): 'postgresql' | 'mysql' | 'sqlite' | 'transactsql' | 'plsql' | 'sql' {
   if (kind === 'postgres') return 'postgresql'
   if (kind === 'mysql') return 'mysql'
   if (kind === 'sqlite') return 'sqlite'
+  if (kind === 'mssql') return 'transactsql'
+  if (kind === 'oracle') return 'plsql'
   return 'sql'
 }
 
@@ -44,6 +49,7 @@ export default function SqlEditor({
   onRun,
   onSave,
   dialect,
+  theme = 'vs-dark',
   apiRef
 }: Props): JSX.Element {
   const onRunRef = useRef(onRun)
@@ -89,7 +95,7 @@ export default function SqlEditor({
     <Editor
       height="100%"
       language="sql"
-      theme="vs-dark"
+      theme={theme}
       value={value}
       onChange={(v) => onChange(v ?? '')}
       onMount={handleMount}

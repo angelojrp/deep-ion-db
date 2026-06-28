@@ -8,9 +8,15 @@ interface Props {
   value: string
   onChange: (value: string) => void
   onSave: () => void
+  theme?: string
 }
 
-export default function MarkdownView({ value, onChange, onSave }: Props): JSX.Element {
+export default function MarkdownView({
+  value,
+  onChange,
+  onSave,
+  theme = 'vs-dark'
+}: Props): JSX.Element {
   const [mode, setMode] = useState<Mode>('split')
   const onSaveRef = useRef(onSave)
   useEffect(() => {
@@ -47,7 +53,7 @@ export default function MarkdownView({ value, onChange, onSave }: Props): JSX.El
             <Editor
               height="100%"
               language="markdown"
-              theme="vs-dark"
+              theme={theme}
               value={value}
               onChange={(v) => onChange(v ?? '')}
               onMount={handleMount}

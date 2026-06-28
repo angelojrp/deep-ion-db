@@ -26,12 +26,16 @@ interface Props {
   onOpenFile: (entry: WsEntry) => void
   onNewFile: (dir: string) => void
   onDeleteFile: (entry: WsEntry) => void
+  theme: 'dark' | 'light'
+  onToggleTheme: () => void
 }
 
 const DEFAULT_PORT: Record<DbKind, string> = {
   postgres: '5432',
   mysql: '3306',
-  sqlite: ''
+  sqlite: '',
+  mssql: '1433',
+  oracle: '1521'
 }
 
 export default function Sidebar({
@@ -49,7 +53,9 @@ export default function Sidebar({
   onRefreshWorkspace,
   onOpenFile,
   onNewFile,
-  onDeleteFile
+  onDeleteFile,
+  theme,
+  onToggleTheme
 }: Props): JSX.Element {
   const hasAny = connections.length > 0 || saved.length > 0
   const [showForm, setShowForm] = useState(!hasAny)
@@ -102,14 +108,26 @@ export default function Sidebar({
   return (
     <aside className="sidebar">
       <div className="sidebar-head">
-        <h1 className="brand">Deep Ion DB</h1>
-        <button
-          className="icon-btn"
-          title={showForm ? 'Fechar' : 'Nova conexão'}
-          onClick={() => setShowForm((v) => !v)}
-        >
-          {showForm ? '×' : '＋'}
-        </button>
+        <h1 className="brand">
+          <img className="brand-logo" src="/icon.png" alt="" width={22} height={22} />
+          Deep Ion DB
+        </h1>
+        <span className="head-actions">
+          <button
+            className="icon-btn"
+            title={theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+            onClick={onToggleTheme}
+          >
+            {theme === 'dark' ? '☀' : '🌙'}
+          </button>
+          <button
+            className="icon-btn"
+            title={showForm ? 'Fechar' : 'Nova conexão'}
+            onClick={() => setShowForm((v) => !v)}
+          >
+            {showForm ? '×' : '＋'}
+          </button>
+        </span>
       </div>
 
       {showForm && (
@@ -120,6 +138,8 @@ export default function Sidebar({
               <option value="postgres">PostgreSQL</option>
               <option value="mysql">MySQL / MariaDB</option>
               <option value="sqlite">SQLite</option>
+              <option value="mssql">SQL Server</option>
+              <option value="oracle">Oracle</option>
             </select>
           </label>
 

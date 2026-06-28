@@ -1,0 +1,31 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1e3b"/>
+      <stop offset="1" stop-color="#15324f"/>
+    </linearGradient>
+    <linearGradient id="db" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="208" fill="url(#bg)"/>
+
+  <!-- Database cylinder -->
+  <g transform="translate(512 520)">
+    <ellipse cx="0" cy="-150" rx="190" ry="60" fill="url(#db)"/>
+    <path d="M -190 -150 L -190 150 A 190 60 0 0 0 190 150 L 190 -150" fill="url(#db)" opacity="0.85"/>
+    <ellipse cx="0" cy="-150" rx="190" ry="60" fill="#7dd3fc"/>
+    <ellipse cx="0" cy="-30" rx="190" ry="60" fill="none" stroke="#0b1e3b" stroke-width="14" opacity="0.55"/>
+    <ellipse cx="0" cy="90" rx="190" ry="60" fill="none" stroke="#0b1e3b" stroke-width="14" opacity="0.55"/>
+  </g>
+
+  <!-- Ion / electron orbits -->
+  <g transform="translate(512 512)" fill="none" stroke="#e2e8f0" stroke-width="16" opacity="0.9">
+    <ellipse cx="0" cy="0" rx="360" ry="140" transform="rotate(30)"/>
+    <ellipse cx="0" cy="0" rx="360" ry="140" transform="rotate(-30)"/>
+  </g>
+  <circle cx="232" cy="700" r="34" fill="#f472b6"/>
+  <circle cx="800" cy="330" r="28" fill="#facc15"/>
+</svg>

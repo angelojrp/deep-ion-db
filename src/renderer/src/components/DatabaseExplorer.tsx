@@ -6,6 +6,8 @@ import type {
   SavedConnection,
   SchemaTable
 } from '@shared/types'
+import { seedSystem, stripCodeFences } from '@ai/features'
+import { parseCsv } from '../csv'
 
 interface DataSource {
   id: string
@@ -216,6 +218,53 @@ function SchemaNode({
               onInsertSql={onInsertSql}
             />
           ))}
+          <RoutinesNode connId={connId} schema={schema.name} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoutinesNode({ connId, schema }: { connId: string; schema: string }): JSX.Element | null {
+  const [expanded, setExpanded] = useState(false)
+  const [items, setItems] = useState<{ name: string; type: string }[] | null>(null)
+
+  async function toggle(): Promise<void> {
+    if (!expanded && !items) {
+      try {
+        setItems(await window.api.db.routines(connId, schema))
+      } catch {
+        setItems([])
+      }
+    }
+    setExpanded((e) => !e)
+  }
+
+  if (items && items.length === 0 && !expanded) return null
+
+  return (
+    <div className="node">
+      <div className="node-row" onClick={toggle}>
+        <span className="caret">{expanded ? '▾' : '▸'}</span>
+        <span className="node-label">
+          <span className="ic">ƒ</span>
+          Funções/Procedures
+          {items && <span className="badge">{items.length}</span>}
+        </span>
+      </div>
+      {expanded && (
+        <div className="children">
+          {items?.length === 0 && <div className="node-info">nenhuma</div>}
+          {items?.map((r) => (
+            <div key={r.name} className="node-row leaf" title={r.type}>
+              <span className="caret-spacer" />
+              <span className="node-label">
+                <span className="ic">ƒ</span>
+                {r.name}
+                <span className="col-type">{r.type}</span>
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -235,16 +284,60 @@ function TableNode({
 }): JSX.Element {
   const [expanded, setExpanded] = useState(false)
   const [cols, setCols] = useState<ColumnInfo[] | null>(null)
+  const [idx, setIdx] = useState<{ name: string; detail?: string }[]>([])
   const [loading, setLoading] = useState(false)
 
   const qualified = kind === 'sqlite' ? table.name : `${table.schema}.${table.name}`
   const isView = /view/i.test(table.type)
 
+  async function importCsv(): Promise<void> {
+    const file = await window.api.ws.openFile()
+    if (!file) return
+    const rows = parseCsv(file.content)
+    if (rows.length < 2) {
+      window.alert('CSV vazio ou só com cabeçalho.')
+      return
+    }
+    const headers = rows[0]
+    const cols = await window.api.db.listColumns(connId, table.schema, table.name)
+    const names = new Set(cols.map((c) => c.name))
+    const used = headers.map((h, i) => ({ h, i })).filter((x) => names.has(x.h))
+    if (!used.length) {
+      window.alert('Nenhum cabeçalho do CSV corresponde às colunas da tabela.')
+      return
+    }
+    const qi = (id: string): string =>
+      kind === 'mysql' ? '`' + id.replace(/`/g, '``') + '`' : '"' + id.replace(/"/g, '""') + '"'
+    const tableQ =
+      kind === 'sqlite' || table.schema === 'main'
+        ? qi(table.name)
+        : `${qi(table.schema)}.${qi(table.name)}`
+    const colList = used.map((x) => qi(x.h)).join(', ')
+    const statements = rows.slice(1).map((r) => {
+      const vals = used.map((_, j) => (kind === 'postgres' ? `$${j + 1}` : '?')).join(', ')
+      return {
+        sql: `INSERT INTO ${tableQ} (${colList}) VALUES (${vals})`,
+        params: used.map((x) => r[x.i] ?? null)
+      }
+    })
+    try {
+      await window.api.db.execBatch(connId, statements)
+      window.alert(`Importadas ${statements.length} linha(s) em ${qualified}.`)
+    } catch (e) {
+      window.alert('Erro ao importar: ' + (e instanceof Error ? e.message : String(e)))
+    }
+  }
+
   async function toggle(): Promise<void> {
     if (!expanded && !cols) {
       setLoading(true)
       try {
-        setCols(await window.api.db.listColumns(connId, table.schema, table.name))
+        const [c, i] = await Promise.all([
+          window.api.db.listColumns(connId, table.schema, table.name),
+          window.api.db.indexes(connId, table.schema, table.name).catch(() => [])
+        ])
+        setCols(c)
+        setIdx(i)
       } catch {
         setCols([])
       } finally {
@@ -290,6 +383,31 @@ function TableNode({
           >
             DDL
           </button>
+          <button
+            className="link"
+            title="Gerar dados de teste (IA)"
+            onClick={async () => {
+              try {
+                const cols = await window.api.db.listColumns(connId, table.schema, table.name)
+                const colText = cols
+                  .map((c) => `${c.name} ${c.dataType}${c.nullable ? '' : ' NOT NULL'}`)
+                  .join(', ')
+                const user = `Tabela: ${qualified}\nColunas: ${colText}\nGere 10 INSERTs.`
+                const reply = await window.api.ai.chat(
+                  [{ role: 'user', content: user }],
+                  seedSystem(kind ?? 'SQL')
+                )
+                onInsertSql(stripCodeFences(reply))
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            🌱
+          </button>
+          <button className="link" title="Importar CSV" onClick={importCsv}>
+            📥
+          </button>
         </span>
       </div>
       {expanded && (
@@ -307,6 +425,16 @@ function TableNode({
                 <span className="ic">▪</span>
                 {c.name}
                 <span className="col-type">{c.dataType}</span>
+              </span>
+            </div>
+          ))}
+          {idx.map((ix) => (
+            <div key={`idx-${ix.name}`} className="node-row leaf" title={ix.detail ?? 'índice'}>
+              <span className="caret-spacer" />
+              <span className="node-label">
+                <span className="ic">⚿</span>
+                {ix.name}
+                <span className="col-type">{ix.detail ?? 'index'}</span>
               </span>
             </div>
           ))}

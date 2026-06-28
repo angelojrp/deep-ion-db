@@ -3,9 +3,13 @@ import type {
   ColumnInfo,
   ConnectionConfig,
   Driver,
+  ForeignKey,
   HealthMetric,
+  IndexInfo,
+  JobInfo,
   QueryResult,
   RoleInfo,
+  RoutineInfo,
   SchemaTable,
   SessionInfo,
   SqlStatement
@@ -86,8 +90,46 @@ export class SqliteDriver implements Driver {
     throw new Error('SQLite (arquivo local) não possui sessões.')
   }
 
+  async indexes(_schema: string, table: string): Promise<IndexInfo[]> {
+    const quoted = `"${table.replace(/"/g, '""')}"`
+    const rows = this.handle.prepare(`PRAGMA index_list(${quoted})`).all() as {
+      name: string
+      unique: number
+    }[]
+    return rows.map((r) => ({ name: r.name, detail: r.unique ? 'unique' : undefined }))
+  }
+
+  async routines(): Promise<RoutineInfo[]> {
+    return []
+  }
+
+  async jobs(): Promise<JobInfo[]> {
+    return []
+  }
+
   async listRoles(): Promise<RoleInfo[]> {
     return []
+  }
+
+  async foreignKeys(): Promise<ForeignKey[]> {
+    const tables = (
+      this.handle
+        .prepare(`select name from sqlite_master where type='table' and name not like 'sqlite_%'`)
+        .all() as { name: string }[]
+    ).map((r) => r.name)
+    const fks: ForeignKey[] = []
+    for (const t of tables) {
+      const quoted = `"${t.replace(/"/g, '""')}"`
+      const rows = this.handle.prepare(`PRAGMA foreign_key_list(${quoted})`).all() as {
+        table: string
+        from: string
+        to: string
+      }[]
+      for (const r of rows) {
+        fks.push({ table: t, column: r.from, refTable: r.table, refColumn: r.to })
+      }
+    }
+    return fks
   }
 
   async serverHealth(): Promise<HealthMetric[]> {

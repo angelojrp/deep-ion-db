@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppApi, ConnectionConfig, HistoryInput, SqlStatement } from '@shared/types'
+import type {
+  AiChatMessage,
+  AiSettingsInput,
+  AppApi,
+  ConnectionConfig,
+  HistoryInput,
+  SqlStatement
+} from '@shared/types'
 
 const api: AppApi = {
   db: {
@@ -19,7 +26,13 @@ const api: AppApi = {
     killSession: (id: string, pid: string | number) =>
       ipcRenderer.invoke('db:killSession', id, pid),
     listRoles: (id: string) => ipcRenderer.invoke('db:listRoles', id),
-    serverHealth: (id: string) => ipcRenderer.invoke('db:serverHealth', id)
+    serverHealth: (id: string) => ipcRenderer.invoke('db:serverHealth', id),
+    foreignKeys: (id: string) => ipcRenderer.invoke('db:foreignKeys', id),
+    indexes: (id: string, schema: string, table: string) =>
+      ipcRenderer.invoke('db:indexes', id, schema, table),
+    routines: (id: string, schema: string) => ipcRenderer.invoke('db:routines', id, schema),
+    jobs: (id: string) => ipcRenderer.invoke('db:jobs', id),
+    backup: (id: string) => ipcRenderer.invoke('db:backup', id)
   },
   conn: {
     list: () => ipcRenderer.invoke('conn:list'),
@@ -36,7 +49,8 @@ const api: AppApi = {
     create: (dir: string, name: string) => ipcRenderer.invoke('ws:create', dir, name),
     remove: (path: string) => ipcRenderer.invoke('ws:remove', path),
     saveAs: (defaultName: string, content: string) =>
-      ipcRenderer.invoke('ws:saveAs', defaultName, content)
+      ipcRenderer.invoke('ws:saveAs', defaultName, content),
+    openFile: () => ipcRenderer.invoke('ws:openFile')
   },
   hist: {
     list: () => ipcRenderer.invoke('hist:list'),
@@ -44,6 +58,12 @@ const api: AppApi = {
     toggleFavorite: (id: string) => ipcRenderer.invoke('hist:toggleFavorite', id),
     remove: (id: string) => ipcRenderer.invoke('hist:remove', id),
     clear: () => ipcRenderer.invoke('hist:clear')
+  },
+  ai: {
+    getConfig: () => ipcRenderer.invoke('ai:getConfig'),
+    setConfig: (input: AiSettingsInput) => ipcRenderer.invoke('ai:setConfig', input),
+    chat: (messages: AiChatMessage[], system?: string) =>
+      ipcRenderer.invoke('ai:chat', messages, system)
   }
 }
 

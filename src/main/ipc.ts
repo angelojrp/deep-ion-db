@@ -1,9 +1,12 @@
-import { ipcMain } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import { DbManager } from './db/manager'
+import { runBackup } from './backup'
 import { ConnectionStore } from './connectionStore'
 import { HistoryStore } from './historyStore'
 import * as ws from './workspace'
+import * as ai from './aiSettings'
 import type { ConnectionConfig, HistoryInput, SqlStatement } from './db/types'
+import type { AiChatMessage, AiSettingsInput } from '@shared/types'
 
 const manager = new DbManager()
 const store = new ConnectionStore()
@@ -13,6 +16,7 @@ const history = new HistoryStore()
 export function registerDbIpc(): void {
   store.load()
   history.load()
+  ai.loadAiSettings()
 
   ipcMain.handle('db:connect', (_e, config: ConnectionConfig) => manager.connect(config))
   ipcMain.handle('db:disconnect', (_e, id: string) => manager.disconnect(id))
@@ -36,6 +40,26 @@ export function registerDbIpc(): void {
   )
   ipcMain.handle('db:listRoles', (_e, id: string) => manager.listRoles(id))
   ipcMain.handle('db:serverHealth', (_e, id: string) => manager.serverHealth(id))
+  ipcMain.handle('db:foreignKeys', (_e, id: string) => manager.foreignKeys(id))
+  ipcMain.handle('db:indexes', (_e, id: string, schema: string, table: string) =>
+    manager.indexes(id, schema, table)
+  )
+  ipcMain.handle('db:routines', (_e, id: string, schema: string) => manager.routines(id, schema))
+  ipcMain.handle('db:jobs', (_e, id: string) => manager.jobs(id))
+  ipcMain.handle('db:backup', async (_e, id: string) => {
+    const config = manager.getConfig(id)
+    if (!config) return { ok: false, error: 'Conexão não encontrada.' }
+    const def =
+      config.kind === 'sqlite' ? `${config.name}.db` : `${config.database ?? config.name}.sql`
+    const res = await dialog.showSaveDialog({ title: 'Salvar backup', defaultPath: def })
+    if (res.canceled || !res.filePath) return { ok: false }
+    try {
+      await runBackup(config, res.filePath)
+      return { ok: true, path: res.filePath }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
 
   // Conexões salvas (senha criptografada, nunca exposta ao renderer).
   ipcMain.handle('conn:list', () => store.list())
@@ -57,6 +81,14 @@ export function registerDbIpc(): void {
   ipcMain.handle('ws:remove', (_e, path: string) => ws.removeEntry(path))
   ipcMain.handle('ws:saveAs', (_e, defaultName: string, content: string) =>
     ws.saveAs(defaultName, content)
+  )
+  ipcMain.handle('ws:openFile', () => ws.openTextFile())
+
+  // Integração com IA (config + chat). A chave fica só no main.
+  ipcMain.handle('ai:getConfig', () => ai.getPublicConfig())
+  ipcMain.handle('ai:setConfig', (_e, input: AiSettingsInput) => ai.setConfig(input))
+  ipcMain.handle('ai:chat', (_e, messages: AiChatMessage[], system?: string) =>
+    ai.chat(messages, system)
   )
 
   // Histórico de queries.
