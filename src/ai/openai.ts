@@ -1,4 +1,7 @@
 import type { AIChatOptions, AIMessage, AIProvider, AIProviderConfig } from './types'
+import { AIHttpError, toAIHttpError, withRetry } from './retry'
+
+const TIMEOUT_MS = 30_000
 
 /** Adaptador OpenAI — Chat Completions (POST /v1/chat/completions). */
 export class OpenAIProvider implements AIProvider {
@@ -21,18 +24,34 @@ export class OpenAIProvider implements AIProvider {
     }
     if (opts.maxTokens) body.max_tokens = opts.maxTokens
 
-    const res = await this.fetchFn(`${base}/v1/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${this.config.apiKey}`
-      },
-      body: JSON.stringify(body)
+    return withRetry(async () => {
+      let res: Response
+      try {
+        res = await this.fetchFn(`${base}/v1/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${this.config.apiKey}`
+          },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(TIMEOUT_MS)
+        })
+      } catch (err) {
+        if (err instanceof DOMException && err.name === 'TimeoutError') {
+          throw new Error('Requisição à IA excedeu o tempo limite', { cause: err })
+        }
+        throw new Error('Sem conexão com o serviço de IA', { cause: err })
+      }
+
+      if (!res.ok) {
+        throw await toAIHttpError(res, 'OpenAI')
+      }
+
+      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
+      return data.choices?.[0]?.message?.content ?? ''
     })
-    if (!res.ok) {
-      throw new Error(`OpenAI ${res.status}: ${await res.text()}`)
-    }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
-    return data.choices?.[0]?.message?.content ?? ''
   }
 }
+
+// Re-export so consumers can catch typed errors if needed
+export { AIHttpError }

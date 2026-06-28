@@ -7,6 +7,19 @@ const DEFAULT_MODEL: Record<AIProviderKind, string> = {
   openai: 'gpt-4o'
 }
 
+const MODEL_OPTIONS: Record<AIProviderKind, { value: string; label: string }[]> = {
+  anthropic: [
+    { value: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+    { value: 'claude-opus-4-8', label: 'Claude Opus 4.8' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
+  ],
+  openai: [
+    { value: 'gpt-4o', label: 'GPT-4o' },
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
+  ]
+}
+
 export default function AiSettingsPanel({ onClose }: { onClose: () => void }): JSX.Element {
   const [kind, setKind] = useState<AIProviderKind>('anthropic')
   const [model, setModel] = useState(DEFAULT_MODEL.anthropic)
@@ -36,6 +49,10 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
     setModel(DEFAULT_MODEL[k])
   }
 
+  function isCustomModel(currentKind: AIProviderKind, currentModel: string): boolean {
+    return !MODEL_OPTIONS[currentKind].some((o) => o.value === currentModel)
+  }
+
   async function save(): Promise<void> {
     setErr(null)
     try {
@@ -53,6 +70,9 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
       setErr(e instanceof Error ? e.message : String(e))
     }
   }
+
+  const modelOptions = MODEL_OPTIONS[kind]
+  const isCustom = isCustomModel(kind, model)
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -84,8 +104,32 @@ export default function AiSettingsPanel({ onClose }: { onClose: () => void }): J
           </label>
           <label>
             Modelo
-            <input value={model} onChange={(e) => setModel(e.target.value)} />
+            <select
+              value={isCustom ? '__custom__' : model}
+              onChange={(e) => {
+                if (e.target.value !== '__custom__') {
+                  setModel(e.target.value)
+                }
+              }}
+            >
+              {modelOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              <option value="__custom__">Personalizado…</option>
+            </select>
           </label>
+          {isCustom && (
+            <label>
+              Modelo personalizado
+              <input
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                placeholder="ex: claude-3-5-sonnet-20241022"
+              />
+            </label>
+          )}
           <label>
             Endpoint (opcional — on-prem/compatível)
             <input
