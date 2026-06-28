@@ -18,7 +18,7 @@ Baixe o instalador da sua plataforma na página de **[Releases](https://github.c
 
 ## Recursos
 
-- Conexão a **PostgreSQL**, **MySQL/MariaDB** e **SQLite**
+- Conexão a **PostgreSQL**, **MySQL/MariaDB**, **SQLite** e **SQL Server**
 - Editor SQL com **Monaco** (mesmo editor do VS Code), atalho **Ctrl/Cmd + Enter** para executar
 - Grade de resultados (**TanStack Table**) com contagem de linhas e tempo de execução
 - Navegador de tabelas na lateral — clique gera um `SELECT * ... LIMIT 100`

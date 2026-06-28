@@ -20,10 +20,13 @@ interface Props {
   apiRef?: MutableRefObject<SqlEditorApi | null>
 }
 
-function mapDialect(kind: DbKind | undefined): 'postgresql' | 'mysql' | 'sqlite' | 'sql' {
+function mapDialect(
+  kind: DbKind | undefined
+): 'postgresql' | 'mysql' | 'sqlite' | 'transactsql' | 'sql' {
   if (kind === 'postgres') return 'postgresql'
   if (kind === 'mysql') return 'mysql'
   if (kind === 'sqlite') return 'sqlite'
+  if (kind === 'mssql') return 'transactsql'
   return 'sql'
 }
 
