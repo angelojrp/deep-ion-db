@@ -439,13 +439,16 @@ async function main(): Promise<void> {
         reply.code(429)
         return { error: `limite de ${MAX_SESSIONS_PER_USER} execuções simultâneas atingido` }
       }
-      const driver = new PostgresDriver(ds.config)
+      const driver = makeDriverFromConfig(ds.config)
       try {
         await driver.connect()
-        await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
+        // statement_timeout é específico do PostgreSQL
+        if (ds.config.kind === 'postgres') {
+          await driver.query(`SET statement_timeout = ${STATEMENT_TIMEOUT_MS}`)
+        }
         let result: QueryResult & { truncated?: boolean }
-        if (mode === 'read') {
-          // Garante somente leitura em nível de banco, impedindo bypass via CTEs com DML.
+        if (mode === 'read' && ds.config.kind === 'postgres') {
+          // Garante somente leitura em nível de transação (PostgreSQL)
           await driver.query('BEGIN')
           try {
             await driver.query('SET TRANSACTION READ ONLY')
@@ -489,7 +492,7 @@ async function main(): Promise<void> {
       reply.code(404)
       return { error: 'data source não encontrado' }
     }
-    const driver = new PostgresDriver(config)
+    const driver = makeDriverFromConfig(config)
     try {
       await driver.connect()
       const tables = await driver.listTables()
@@ -514,7 +517,7 @@ async function main(): Promise<void> {
         reply.code(404)
         return { error: 'data source não encontrado' }
       }
-      const driver = new PostgresDriver(config)
+      const driver = makeDriverFromConfig(config)
       try {
         await driver.connect()
         return { columns: await driver.listColumns(req.body.schema, req.body.table) }
