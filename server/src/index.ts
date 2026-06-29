@@ -137,7 +137,7 @@ async function main(): Promise<void> {
         styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
         fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
         workerSrc: ["'self'", 'blob:'],
-        connectSrc: ["'self'", ...oidcOrigins],
+        connectSrc: ["'self'", 'https://cdn.jsdelivr.net', ...oidcOrigins],
         imgSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"]
