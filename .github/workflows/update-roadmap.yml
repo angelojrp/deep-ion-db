@@ -1,0 +1,90 @@
+name: Update ROADMAP on merge to main
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  update-roadmap:
+    runs-on: ubuntu-latest
+    # Só roda em merge commits (PRs mergeados via merge commit ou squash merge)
+    if: |
+      contains(github.event.head_commit.message, 'Merge pull request') ||
+      contains(github.event.head_commit.message, 'feat') ||
+      contains(github.event.head_commit.message, 'fix') ||
+      contains(github.event.head_commit.message, 'chore') ||
+      contains(github.event.head_commit.message, 'docs')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 5
+
+      - name: Extrair numero do PR do commit
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Tenta extrair o numero do PR da mensagem (ex: "Merge pull request #123")
+          PR_NUM=$(echo "$COMMIT_MSG" | grep -oP '(?<=#)\d+' | head -1)
+
+          if [ -z "$PR_NUM" ]; then
+            # Fallback: busca o PR pelo SHA do commit
+            PR_NUM=$(gh pr list --state merged --json number,mergeCommit \
+              --jq ".[] | select(.mergeCommit.oid == \"${{ github.sha }}\") | .number" 2>/dev/null || echo "")
+          fi
+
+          echo "number=${PR_NUM:-0}" >> "$GITHUB_OUTPUT"
+          echo "PR number: ${PR_NUM:-desconhecido}"
+
+      - name: Buscar detalhes do PR
+        id: pr-details
+        if: steps.pr.outputs.number != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUM="${{ steps.pr.outputs.number }}"
+          TITLE=$(gh pr view "$PR_NUM" --json title -q .title 2>/dev/null || echo "")
+          LABELS=$(gh pr view "$PR_NUM" --json labels -q '[.labels[].name] | join(", ")' 2>/dev/null || echo "")
+          FILES=$(gh pr view "$PR_NUM" --json files -q '[.files[].path] | join(", ")' 2>/dev/null || echo "")
+          BODY=$(gh pr view "$PR_NUM" --json body -q .body 2>/dev/null || echo "")
+
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "labels=$LABELS" >> "$GITHUB_OUTPUT"
+          echo "files=$FILES" >> "$GITHUB_OUTPUT"
+          {
+            echo "body<<EOF_BODY"
+            echo "$BODY"
+            echo "EOF_BODY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Atualizar ROADMAP com Claude
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            O PR #${{ steps.pr.outputs.number }} foi mergeado na branch `main` do repositorio deep-ion-db.
+
+            **Informacoes do PR:**
+            - Titulo: ${{ steps.pr-details.outputs.title }}
+            - Labels: ${{ steps.pr-details.outputs.labels }}
+            - Arquivos modificados: ${{ steps.pr-details.outputs.files }}
+            - Descricao:
+            ${{ steps.pr-details.outputs.body }}
+
+            **Sua tarefa:** Atualizar o arquivo `ROADMAP.md` para refletir o que foi entregue por este PR.
+
+            **Regras obrigatorias:**
+            1. Leia o conteudo atual do `ROADMAP.md` com a ferramenta de leitura de arquivo
+            2. Identifique quais issues/itens do roadmap foram **claramente** abordados por este PR (pelo titulo, descricao e arquivos modificados)
+            3. Marque esses itens como `✅` se estavam como `⬜` ou `🚧`
+            4. Preserve TODA a formatacao, estrutura, links e conteudo existente — altere APENAS o status dos itens entregues
+            5. Se uma milestone inteira for concluida, adicione `(entregue)` ao titulo da secao
+            6. Se NENHUM item precisar ser alterado, NAO modifique o arquivo e NAO faca commit
+            7. Se houver alteracoes, commite com a mensagem exata: `docs(roadmap): marca itens entregues via PR #${{ steps.pr.outputs.number }}`
+
+            Seja conservador: so marque como entregue o que o PR claramente resolve. Em caso de duvida, nao altere.
