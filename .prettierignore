@@ -8,3 +8,4 @@ package-lock.json
 .claude/worktrees
 test-results
 playwright-report
+coverage
