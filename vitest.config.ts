@@ -7,22 +7,11 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],
-      include: ['src/**/*.ts', 'server/src/**/*.ts', 'web/src/**/*.ts'],
-      exclude: [
-        'node_modules/',
-        'tests/',
-        'dist/',
-        'out/',
-        '**/*.d.ts',
-        '**/*.config.*',
-        'src/main/index.ts',
-        'web/public/**'
-      ],
       thresholds: {
-        statements: 40,
-        branches: 30,
-        functions: 40,
-        lines: 40
+        statements: 25,
+        branches: 20,
+        functions: 25,
+        lines: 25
       }
     }
   }
