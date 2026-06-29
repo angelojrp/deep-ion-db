@@ -1070,10 +1070,11 @@ interface Props {
   onBack: () => void
   onLogout?: () => void
   authDisabled?: boolean
+  defaultTab?: Tab
 }
 
-export default function Admin({ onBack, onLogout, authDisabled }: Props): JSX.Element {
-  const [tab, setTab] = useState<Tab>('data-sources')
+export default function Admin({ onBack, onLogout, authDisabled, defaultTab }: Props): JSX.Element {
+  const [tab, setTab] = useState<Tab>(defaultTab ?? 'data-sources')
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'data-sources', label: 'Data Sources', icon: '🗄️' },
