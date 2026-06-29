@@ -1,0 +1,61 @@
+name: Gitflow Policy
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  validate:
+    name: Validate gitflow rules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming and target
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          echo "PR: $HEAD → $BASE"
+
+          # ── Regras para PRs destinados a main ──────────────────────────────
+          if [ "$BASE" = "main" ]; then
+            if [[ "$HEAD" != "develop" && "$HEAD" != hotfix/* && "$HEAD" != release/* ]]; then
+              echo "❌ PRs para 'main' só são aceitos de: develop, hotfix/*, release/*"
+              echo "   Branch de origem detectada: $HEAD"
+              exit 1
+            fi
+            echo "✅ Origem válida para main: $HEAD"
+            exit 0
+          fi
+
+          # ── Regras para PRs destinados a develop ───────────────────────────
+          if [ "$BASE" = "develop" ]; then
+            if [ "$HEAD" = "main" ]; then
+              echo "❌ Não é permitido abrir PR de 'main' para 'develop'."
+              exit 1
+            fi
+
+            VALID="^(feat|fix|hotfix|chore|docs|refactor|test|ci|build|perf|style|security)/.+"
+            if ! echo "$HEAD" | grep -qE "$VALID"; then
+              echo "❌ Nome de branch inválido: '$HEAD'"
+              echo ""
+              echo "   Prefixos permitidos para PRs em develop:"
+              echo "     feat/*      — nova funcionalidade"
+              echo "     fix/*       — correção de bug"
+              echo "     hotfix/*    — correção urgente (também pode ir direto a main)"
+              echo "     chore/*     — manutenção sem impacto funcional"
+              echo "     docs/*      — documentação"
+              echo "     refactor/*  — refatoração sem mudança de comportamento"
+              echo "     test/*      — cobertura de testes"
+              echo "     ci/*        — pipelines e automação"
+              echo "     build/*     — sistema de build / dependências"
+              echo "     perf/*      — otimização de performance"
+              echo "     style/*     — formatação / lint"
+              echo "     security/*  — correções de segurança"
+              echo ""
+              echo "   Renomeie a branch e reabra o PR."
+              exit 1
+            fi
+
+            echo "✅ Branch '$HEAD' segue a convenção gitflow."
+          fi
