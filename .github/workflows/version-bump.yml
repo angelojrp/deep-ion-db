@@ -53,4 +53,4 @@ jobs:
           git add package.json package-lock.json
           git commit -m "chore(release): bump versao para ${{ steps.bump.outputs.version }}"
           git tag ${{ steps.bump.outputs.version }}
-          git push origin main --follow-tags
+          git push origin refs/heads/main --follow-tags
