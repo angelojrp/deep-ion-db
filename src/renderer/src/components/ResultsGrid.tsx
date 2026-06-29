@@ -68,6 +68,20 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
     setApplyError(null)
   }, [result])
 
+  const cols = result?.columns ?? []
+  const rows = (result?.rows ?? []) as Row[]
+
+  // Virtual scrolling is only active when not in edit mode (edit mode adds new rows dynamically)
+  const useVirtual = !editMode
+
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollContainerRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+    enabled: useVirtual && rows.length > 0
+  })
+
   if (!result) {
     return <div className="placeholder">Execute uma query para ver os resultados.</div>
   }
@@ -79,8 +93,6 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
     )
   }
 
-  const cols = result.columns
-  const rows = result.rows as Row[]
   const pendingCount =
     Object.values(edits).reduce((n, r) => n + Object.keys(r).length, 0) +
     deleted.size +
@@ -187,18 +199,6 @@ export default function ResultsGrid({ result, edit, onApplied }: Props): JSX.Ele
   }
 
   const canEdit = caps.editableGrid && !!edit && edit.pkCols.length > 0
-
-  // Virtual scrolling is only active when not in edit mode (edit mode adds new rows dynamically)
-  const useVirtual = !editMode
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollContainerRef.current,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 10,
-    enabled: useVirtual
-  })
 
   const virtualItems = useVirtual ? rowVirtualizer.getVirtualItems() : null
   const totalVirtualSize = useVirtual ? rowVirtualizer.getTotalSize() : 0

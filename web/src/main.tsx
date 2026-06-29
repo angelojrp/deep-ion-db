@@ -9,8 +9,12 @@ import { type AuthConfig, completeLogin, fetchAuthConfig } from './auth'
 import Login from './Login'
 import Admin from './Admin'
 
+type AdminTab = 'data-sources' | 'users' | 'grants' | 'audit'
+
 interface Me {
   role: string
+  email: string | null
+  name: string | null
 }
 
 async function fetchMe(): Promise<Me | null> {
@@ -26,20 +30,26 @@ async function fetchMe(): Promise<Me | null> {
   }
 }
 
+const ADMIN_NAV: { id: AdminTab; label: string; icon: string }[] = [
+  { id: 'data-sources', label: 'Data Sources', icon: '🗄️' },
+  { id: 'users', label: 'Usuários', icon: '👥' },
+  { id: 'grants', label: 'Concessões', icon: '🔑' },
+  { id: 'audit', label: 'Auditoria', icon: '📋' }
+]
+
 /**
- * Entrada do app web (arquitetura unificada): renderiza a MESMA UI do desktop
- * (src/renderer/src/App), injetando um AppApi sobre HTTP + capabilities de web.
- * Antes disso, resolve a autenticação OIDC (#106).
- * Admins veem botão para o painel de administração (issue #115).
+ * Entrada do app web: renderiza a UI do desktop (src/renderer/src/App)
+ * com um menu bar superior contendo brand, links admin e controles de sessão.
  */
 function Root(): JSX.Element {
   const [ready, setReady] = useState(false)
   const [cfg, setCfg] = useState<AuthConfig | null>(null)
   const [authed, setAuthed] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [showAdmin, setShowAdmin] = useState(false)
+  const [me, setMe] = useState<Me | null>(null)
+  const [adminTab, setAdminTab] = useState<AdminTab | null>(null)
 
   const authDisabled = cfg?.authDisabled ?? false
+  const isAdmin = me?.role === 'admin'
 
   useEffect(() => {
     void (async () => {
@@ -53,10 +63,7 @@ function Root(): JSX.Element {
       }
       const ok = (c?.authDisabled ?? false) || !!localStorage.getItem('token')
       setAuthed(ok)
-      if (ok) {
-        const me = await fetchMe()
-        setIsAdmin(me?.role === 'admin')
-      }
+      if (ok) setMe(await fetchMe())
       setReady(true)
     })()
   }, [])
@@ -64,47 +71,69 @@ function Root(): JSX.Element {
   function handleLogout() {
     localStorage.removeItem('token')
     setAuthed(false)
-    setIsAdmin(false)
-    setShowAdmin(false)
+    setMe(null)
+    setAdminTab(null)
   }
 
   if (!ready) return <div className="placeholder">Carregando…</div>
   if (!authed && cfg) return <Login cfg={cfg} onToken={() => setAuthed(true)} />
 
-  if (showAdmin) {
+  if (adminTab !== null) {
     return (
       <Admin
-        onBack={() => setShowAdmin(false)}
+        defaultTab={adminTab}
+        onBack={() => setAdminTab(null)}
         onLogout={authDisabled ? undefined : handleLogout}
         authDisabled={authDisabled}
       />
     )
   }
 
+  const displayName = me?.name ?? me?.email ?? null
+
   return (
     <ApiProvider api={httpApi} caps={WEB_CAPABILITIES}>
-      <div className="web-topbar">
-        {authDisabled && (
-          <span className="auth-disabled-badge" title="AUTH_DISABLED=true — sem autenticação OIDC">
-            ⚠ Modo dev (sem auth)
-          </span>
-        )}
-        {isAdmin && (
-          <button
-            className="admin-fab"
-            title="Painel de Administração"
-            onClick={() => setShowAdmin(true)}
-          >
-            ⚙ Admin
-          </button>
-        )}
-        {!authDisabled && (
-          <button className="logout-btn" onClick={handleLogout} title="Sair">
-            Sair
-          </button>
-        )}
+      <div className="web-layout">
+        <nav className="web-menubar">
+          <span className="web-menubar-brand">Deep Ion DB</span>
+
+          {isAdmin && (
+            <div className="web-menubar-nav" role="menubar">
+              {ADMIN_NAV.map((item) => (
+                <button
+                  key={item.id}
+                  className="web-menubar-item"
+                  role="menuitem"
+                  onClick={() => setAdminTab(item.id)}
+                >
+                  <span className="web-menubar-icon">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="web-menubar-end">
+            {authDisabled && (
+              <span
+                className="auth-disabled-badge"
+                title="AUTH_DISABLED=true — sem autenticação OIDC"
+              >
+                ⚠ Modo dev
+              </span>
+            )}
+            {displayName && <span className="web-menubar-user">{displayName}</span>}
+            {!authDisabled && (
+              <button className="logout-btn" onClick={handleLogout} title="Encerrar sessão">
+                Sair
+              </button>
+            )}
+          </div>
+        </nav>
+        <div className="web-content">
+          <App />
+        </div>
       </div>
-      <App />
     </ApiProvider>
   )
 }
