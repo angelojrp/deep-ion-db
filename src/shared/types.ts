@@ -256,11 +256,13 @@ export interface AiApi {
   onStreamError(cb: (msg: string) => void): () => void
 }
 
-/** API do servidor MCP embutido (issue #146). */
+/** API do servidor MCP embutido (issue #146 / #194). */
 export interface McpApi {
   start(connectionId: string): Promise<{ port: number }>
   stop(): Promise<void>
   status(): Promise<{ running: boolean; port?: number; kind?: DbKind; connectionId?: string }>
+  /** Escreve a entrada `deep-ion-db` em `~/.claude.json` para integração com Claude Code CLI. */
+  configureClaudeCode(): Promise<{ path: string; added: boolean }>
 }
 
 export interface AppApi {

@@ -8,6 +8,7 @@ import type {
   WsEntry
 } from '@shared/types'
 import DatabaseExplorer from './DatabaseExplorer'
+import McpPanel from './McpPanel'
 import WorkspacePanel from './WorkspacePanel'
 import { useApi, useCaps } from '../api'
 import { useServerMode } from '../serverMode'
@@ -299,34 +300,14 @@ export default function Sidebar({
         onInsertSql={onInsertSql}
       />
 
-      {activeId && (
-        <div className="mcp-toggle">
-          {mcpStatus.running && mcpStatus.connectionId === activeId ? (
-            <>
-              <span className="mcp-status mcp-active" title="Servidor MCP ativo para IA">
-                ◉ MCP ativo — porta {mcpStatus.port}
-              </span>
-              <button
-                className="mcp-stop-btn"
-                disabled={mcpBusy}
-                onClick={() => void handleMcpStop()}
-                title="Parar servidor MCP"
-              >
-                {mcpBusy ? '…' : 'Parar MCP'}
-              </button>
-            </>
-          ) : (
-            <button
-              className="mcp-start-btn"
-              disabled={mcpBusy}
-              onClick={() => void handleMcpStart()}
-              title="Habilitar servidor MCP para agentes de IA usarem este banco"
-            >
-              {mcpBusy ? '…' : '⚡ Habilitar MCP para IA'}
-            </button>
-          )}
-        </div>
-      )}
+      <McpPanel
+        activeId={activeId}
+        mcpStatus={mcpStatus}
+        mcpBusy={mcpBusy}
+        onStart={handleMcpStart}
+        onStop={handleMcpStop}
+        onStatusRefresh={refreshMcpStatus}
+      />
     </aside>
   )
 }

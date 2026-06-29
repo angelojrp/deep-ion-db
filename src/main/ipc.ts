@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
 import { dialog, ipcMain } from 'electron'
 import { DbManager } from './db/manager'
 import { runBackup } from './backup'
@@ -136,12 +139,34 @@ export function registerDbIpc(): void {
   ipcMain.handle('hist:remove', (_e, id: string) => history.remove(id))
   ipcMain.handle('hist:clear', () => history.clear())
 
-  // MCP (issue #146): servidor HTTP para integração com agentes de IA.
+  // MCP (issue #146 / #194): servidor HTTP para integração com agentes de IA.
   ipcMain.handle('mcp:start', (_e, connectionId: string) =>
     startMcpForConnection(connectionId, manager)
   )
   ipcMain.handle('mcp:stop', () => stopMcp())
   ipcMain.handle('mcp:status', () => getMcpStatus())
+  ipcMain.handle('mcp:configureClaudeCode', async () => {
+    const status = getMcpStatus()
+    if (!status.running || !status.port) {
+      throw new Error('Servidor MCP não está ativo. Inicie o MCP primeiro.')
+    }
+    const claudeJsonPath = path.join(os.homedir(), '.claude.json')
+    let config: Record<string, unknown> = {}
+    try {
+      const content = await fs.readFile(claudeJsonPath, 'utf-8')
+      config = JSON.parse(content) as Record<string, unknown>
+    } catch {
+      // arquivo não existe — começa com objeto vazio
+    }
+    const mcpServers = (config.mcpServers as Record<string, unknown>) ?? {}
+    mcpServers['deep-ion-db'] = {
+      type: 'sse',
+      url: `http://localhost:${status.port}/mcp`
+    }
+    config.mcpServers = mcpServers
+    await fs.writeFile(claudeJsonPath, JSON.stringify(config, null, 2), 'utf-8')
+    return { path: claudeJsonPath, added: true }
+  })
 }
 
 export async function shutdownDb(): Promise<void> {
