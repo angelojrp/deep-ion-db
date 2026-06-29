@@ -83,28 +83,38 @@ function Root(): JSX.Element {
 
   return (
     <ApiProvider api={httpApi} caps={WEB_CAPABILITIES}>
-      <div className="web-topbar">
-        {authDisabled && (
-          <span className="auth-disabled-badge" title="AUTH_DISABLED=true — sem autenticação OIDC">
-            ⚠ Modo dev (sem auth)
-          </span>
-        )}
-        {isAdmin && (
-          <button
-            className="admin-fab"
-            title="Painel de Administração"
-            onClick={() => setShowAdmin(true)}
-          >
-            ⚙ Admin
-          </button>
-        )}
-        {!authDisabled && (
-          <button className="logout-btn" onClick={handleLogout} title="Sair">
-            Sair
-          </button>
-        )}
+      <div className="web-layout">
+        <header className="web-topbar">
+          <span className="web-topbar-brand">Deep Ion DB</span>
+          <div className="web-topbar-actions">
+            {authDisabled && (
+              <span
+                className="auth-disabled-badge"
+                title="AUTH_DISABLED=true — sem autenticação OIDC"
+              >
+                ⚠ Modo dev (sem auth)
+              </span>
+            )}
+            {isAdmin && (
+              <button
+                className="admin-btn"
+                title="Painel de Administração"
+                onClick={() => setShowAdmin(true)}
+              >
+                ⚙ Admin
+              </button>
+            )}
+            {!authDisabled && (
+              <button className="logout-btn" onClick={handleLogout} title="Sair">
+                Sair
+              </button>
+            )}
+          </div>
+        </header>
+        <div className="web-content">
+          <App />
+        </div>
       </div>
-      <App />
     </ApiProvider>
   )
 }
