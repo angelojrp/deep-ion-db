@@ -40,7 +40,7 @@ export async function startMcpForConnection(
   const config = dbManager.getConfig(connectionId)
   if (!config) throw new Error('Configuração da conexão não encontrada.')
 
-  const mcpServer = createMcpServer(driver)
+  const mcpServer = createMcpServer(driver, config.kind)
 
   // Modo stateless — sem sessions; cada request é independente.
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })

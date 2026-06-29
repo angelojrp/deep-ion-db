@@ -89,7 +89,8 @@ const api: AppApi = {
   mcp: {
     start: (connectionId: string) => ipcRenderer.invoke('mcp:start', connectionId),
     stop: () => ipcRenderer.invoke('mcp:stop'),
-    status: () => ipcRenderer.invoke('mcp:status')
+    status: () => ipcRenderer.invoke('mcp:status'),
+    configureClaudeCode: () => ipcRenderer.invoke('mcp:configureClaudeCode')
   }
 }
 

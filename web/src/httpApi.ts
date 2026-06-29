@@ -176,10 +176,11 @@ export const httpApi: AppApi = {
     onStreamDone: () => () => {},
     onStreamError: () => () => {}
   },
-  // MCP não disponível no modo web (servidor remoto); stub que retorna parado.
+  // MCP não disponível no modo web (servidor remoto); stubs que retornam estado inativo.
   mcp: {
     start: async () => unsupported('MCP'),
     stop: async () => {},
-    status: async () => ({ running: false as const })
+    status: async () => ({ running: false as const }),
+    configureClaudeCode: async () => unsupported('MCP')
   }
 }
