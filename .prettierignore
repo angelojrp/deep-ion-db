@@ -6,3 +6,5 @@ web/public/app.css
 package-lock.json
 *.md
 .claude/worktrees
+test-results
+playwright-report

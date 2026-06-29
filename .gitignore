@@ -19,3 +19,7 @@ deploy/k8s/secret.yaml
 # (styles.css / web/src/admin.css), nunca o artefato gerado.
 web/public/app.js
 web/public/app.css
+
+# Playwright — artefatos de execução (não versionar)
+test-results/
+playwright-report/
