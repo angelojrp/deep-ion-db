@@ -1,5 +1,5 @@
 import { join } from 'path'
-import Fastify from 'fastify'
+import Fastify, { type FastifyInstance } from 'fastify'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import helmet from '@fastify/helmet'
@@ -97,11 +97,12 @@ async function withDriver<T>(
   }
 }
 
-async function main(): Promise<void> {
-  // Fail-closed: aborta se OIDC não estiver configurado corretamente em produção
-  assertOidcConfigured()
-
-  const app = Fastify({ logger: true })
+/**
+ * Cria e configura a instância Fastify sem iniciar o servidor.
+ * Exportada para permitir testes de integração via app.inject().
+ */
+export async function buildApp(): Promise<FastifyInstance> {
+  const app = Fastify({ logger: !process.env.VITEST })
 
   // CORS restrito: lê CORS_ORIGINS do env (vírgula-separado) ou usa localhost em dev
   const corsOrigins = process.env.CORS_ORIGINS?.split(',').map((s) => s.trim()) ?? [
@@ -613,11 +614,23 @@ async function main(): Promise<void> {
     app.log.warn('META_ENCRYPTION_KEY não definida — usando chave de DEV. Defina em produção!')
   }
 
+  return app
+}
+
+async function main(): Promise<void> {
+  // Fail-closed: aborta se OIDC não estiver configurado corretamente em produção
+  assertOidcConfigured()
+
+  const app = await buildApp()
+
   const port = Number(process.env.PORT ?? 4000)
   await app.listen({ port, host: '0.0.0.0' })
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+// Só executa quando iniciado diretamente (não quando importado em testes)
+if (!process.env.VITEST) {
+  main().catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
+}
