@@ -56,6 +56,17 @@ npm run quality      # typecheck + lint + format:check
 - **Types:** `npm run typecheck` deve passar — há um Stop hook que bloqueia finalizar com erro de tipo.
 - **Smoke/Build:** `npm run build` deve compilar; `/smoke` builda e abre o app.
 
+## Issues e rastreamento
+
+Issues de bug, feature e chore deste projeto são abertas **sempre** em:
+
+```
+gh issue create --repo angelojrp/deep-ion-db ...
+```
+
+> Isso sobrepõe a regra global que aponta para `deep-ion-ai/deep-ion`.
+> Aquele repo é exclusivo para handoffs/decisões cross-projeto (labels `handoff/*`).
+
 ## Git — gitflow + Conventional Commits
 
 **Nunca commitar/push direto na `main`.**
