@@ -116,7 +116,18 @@ async function main(): Promise<void> {
     timeWindow: '1 minute'
   })
 
-  // Helmet: headers de segurança com CSP permitindo Monaco CDN e workers
+  // Extrai a origem do OIDC_ISSUER para incluir no connect-src do CSP,
+  // permitindo que a UI faça discovery e troca de tokens com o IdP (ex: Keycloak).
+  const oidcOrigins: string[] = []
+  if (process.env.OIDC_ISSUER && !authDisabled()) {
+    try {
+      oidcOrigins.push(new URL(process.env.OIDC_ISSUER).origin)
+    } catch {
+      // URL inválida — ignora; o CSP fica conservador
+    }
+  }
+
+  // Helmet: headers de segurança com CSP permitindo Monaco CDN, workers e IdP OIDC
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
@@ -126,7 +137,7 @@ async function main(): Promise<void> {
         styleSrc: ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
         fontSrc: ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
         workerSrc: ["'self'", 'blob:'],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", ...oidcOrigins],
         imgSrc: ["'self'", 'data:'],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"]
