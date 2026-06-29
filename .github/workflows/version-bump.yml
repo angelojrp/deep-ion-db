@@ -1,0 +1,56 @@
+name: Version Bump
+
+# Dispara manualmente via GitHub UI ou API.
+# Incrementa a versão no package.json, commita em main e cria a tag vX.Y.Z,
+# o que por sua vez dispara o workflow de release.
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Tipo de bump (patch | minor | major)'
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        run: |
+          NEW_VERSION=$(npm version ${{ inputs.bump_type }} --no-git-tag-version)
+          echo "version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Bumped to ${NEW_VERSION}"
+
+      - name: Commit and tag
+        run: |
+          git add package.json package-lock.json
+          git commit -m "chore(release): bump versao para ${{ steps.bump.outputs.version }}"
+          git tag ${{ steps.bump.outputs.version }}
+          git push origin main --follow-tags
