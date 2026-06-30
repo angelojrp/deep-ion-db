@@ -450,14 +450,16 @@ button.link:hover {
   border-color: var(--text-dim);
 }
 
-.feedback-form {
+.feedback-form,
+.prompt-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px;
   overflow-y: auto;
 }
-.feedback-form label {
+.feedback-form label,
+.prompt-form label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -466,7 +468,8 @@ button.link:hover {
 }
 .feedback-form input,
 .feedback-form select,
-.feedback-form textarea {
+.feedback-form textarea,
+.prompt-form input {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -511,6 +514,16 @@ button.link:hover {
 
 .run-btn {
   font-weight: 600;
+}
+
+.danger-btn {
+  font-weight: 600;
+  background: var(--error);
+  color: #fff;
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--error) 80%, #000);
 }
 
 .ghost-btn {
@@ -1308,4 +1321,81 @@ tr.row-new {
   color: var(--fg2);
   margin: 0;
   line-height: 1.4;
+}
+
+/* Confirmação (ConfirmModal) */
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+.confirm-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* Notificações (Toaster) */
+.toaster {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(380px, 92vw);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+.toast-success {
+  border-left-color: var(--null);
+}
+.toast-error {
+  border-left-color: var(--error);
+}
+.toast-icon {
+  flex-shrink: 0;
+  font-weight: 700;
+}
+.toast-success .toast-icon {
+  color: var(--null);
+}
+.toast-error .toast-icon {
+  color: var(--error);
+}
+.toast-message {
+  flex: 1;
+  word-break: break-word;
+}
+.toast-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.toast-close:hover {
+  background: transparent;
+  color: var(--text);
 }

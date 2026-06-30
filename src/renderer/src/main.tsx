@@ -6,6 +6,7 @@ import { ApiProvider, DESKTOP_CAPABILITIES } from './api'
 import { SERVER_CAPABILITIES, createServerApi } from './serverApi'
 import { ServerModeProvider, type ServerModeValue } from './serverMode'
 import ServerConnect from './components/ServerConnect'
+import { UiProvider } from './ui'
 import './styles.css'
 
 interface Session {
@@ -61,8 +62,10 @@ function Root(): JSX.Element {
   return (
     <ServerModeProvider value={serverMode}>
       <ApiProvider api={api} caps={caps}>
-        {/* key força recarregar conexões ao alternar local/servidor. */}
-        <App key={session?.serverUrl ?? 'local'} />
+        <UiProvider>
+          {/* key força recarregar conexões ao alternar local/servidor. */}
+          <App key={session?.serverUrl ?? 'local'} />
+        </UiProvider>
       </ApiProvider>
       {showConnect && (
         <ServerConnect onConnected={enterServer} onCancel={() => setShowConnect(false)} />

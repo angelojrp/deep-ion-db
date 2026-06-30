@@ -2,6 +2,7 @@ import { type JSX, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from '../../src/renderer/src/App'
 import { ApiProvider } from '../../src/renderer/src/api'
+import { UiProvider } from '../../src/renderer/src/ui'
 import '../../src/renderer/src/styles.css'
 import './admin.css'
 import { httpApi, WEB_CAPABILITIES } from './httpApi'
@@ -131,7 +132,9 @@ function Root(): JSX.Element {
           </div>
         </nav>
         <div className="web-content">
-          <App />
+          <UiProvider>
+            <App />
+          </UiProvider>
         </div>
       </div>
     </ApiProvider>
