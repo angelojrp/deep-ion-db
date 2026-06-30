@@ -1,6 +1,6 @@
 {
   "name": "deep-ion-db",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "IDE para bancos relacionais (estilo DBeaver) — Electron + React + TypeScript",
   "main": "./out/main/index.js",
   "author": "angelojrp@gmail.com",
