@@ -20,6 +20,7 @@ import AiSettingsPanel from './components/AiSettingsPanel'
 import AiAssistantPanel from './components/AiAssistantPanel'
 import DiffPanel from './components/DiffPanel'
 import FeedbackModal from './components/FeedbackModal'
+import PromptModal from './components/PromptModal'
 import JobsPanel from './components/JobsPanel'
 import { setActiveSchema, setCompletionApi } from './sqlCompletion'
 import { useApi, useCaps } from './api'
@@ -72,6 +73,7 @@ export default function App(): JSX.Element {
   const [showDiff, setShowDiff] = useState(false)
   const [showJobs, setShowJobs] = useState(false)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [newFileDir, setNewFileDir] = useState<string | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>(
     () => (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   )
@@ -288,15 +290,18 @@ export default function App(): JSX.Element {
     }
   }, [api, activeTab, updateTab, refreshWorkspace])
 
-  const newFile = useCallback(
-    async (dir: string) => {
-      const name = window.prompt('Nome do arquivo (ex.: consulta.sql ou notas.md):')
-      if (!name) return
+  const newFile = useCallback((dir: string) => setNewFileDir(dir), [])
+
+  const createFile = useCallback(
+    async (name: string) => {
+      const dir = newFileDir
+      setNewFileDir(null)
+      if (!dir) return
       const entry = await api.ws.create(dir, name)
       await refreshWorkspace()
       await openFile(entry)
     },
-    [api, refreshWorkspace, openFile]
+    [api, newFileDir, refreshWorkspace, openFile]
   )
 
   const deleteFile = useCallback(
@@ -627,6 +632,17 @@ export default function App(): JSX.Element {
       )}
 
       {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
+
+      {newFileDir !== null && (
+        <PromptModal
+          title="Novo arquivo"
+          label="Nome do arquivo"
+          placeholder="ex.: consulta.sql ou notas.md"
+          confirmLabel="Criar"
+          onSubmit={createFile}
+          onClose={() => setNewFileDir(null)}
+        />
+      )}
     </div>
   )
 }

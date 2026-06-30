@@ -450,14 +450,16 @@ button.link:hover {
   border-color: var(--text-dim);
 }
 
-.feedback-form {
+.feedback-form,
+.prompt-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 16px;
   overflow-y: auto;
 }
-.feedback-form label {
+.feedback-form label,
+.prompt-form label {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -466,7 +468,8 @@ button.link:hover {
 }
 .feedback-form input,
 .feedback-form select,
-.feedback-form textarea {
+.feedback-form textarea,
+.prompt-form input {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
