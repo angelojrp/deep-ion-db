@@ -1,6 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { HistoryEntry } from '@shared/types'
 import { useApi } from '../api'
+import { useConfirm } from '../ui'
 
 interface Props {
   onClose: () => void
@@ -12,6 +13,7 @@ export default function HistoryPanel({ onClose, onPick }: Props): JSX.Element {
   const [q, setQ] = useState('')
   const [favOnly, setFavOnly] = useState(false)
   const api = useApi()
+  const confirm = useConfirm()
 
   const load = useCallback(() => {
     api.hist
@@ -37,7 +39,13 @@ export default function HistoryPanel({ onClose, onPick }: Props): JSX.Element {
     load()
   }
   async function clear(): Promise<void> {
-    if (window.confirm('Limpar histórico? (favoritos são mantidos)')) {
+    const ok = await confirm({
+      title: 'Limpar histórico',
+      message: 'Limpar histórico? (favoritos são mantidos)',
+      confirmLabel: 'Limpar',
+      danger: true
+    })
+    if (ok) {
       await api.hist.clear()
       load()
     }
