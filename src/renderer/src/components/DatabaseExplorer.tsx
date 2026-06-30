@@ -9,6 +9,7 @@ import type {
 import { seedSystem, stripCodeFences } from '@ai/features'
 import { parseCsv } from '../csv'
 import { useApi, useCaps } from '../api'
+import { useToast } from '../ui'
 
 interface DataSource {
   id: string
@@ -291,6 +292,7 @@ function TableNode({
   const [loading, setLoading] = useState(false)
   const api = useApi()
   const caps = useCaps()
+  const toast = useToast()
 
   const qualified = kind === 'sqlite' ? table.name : `${table.schema}.${table.name}`
   const isView = /view/i.test(table.type)
@@ -300,7 +302,7 @@ function TableNode({
     if (!file) return
     const rows = parseCsv(file.content)
     if (rows.length < 2) {
-      window.alert('CSV vazio ou só com cabeçalho.')
+      toast('CSV vazio ou só com cabeçalho.', 'error')
       return
     }
     const headers = rows[0]
@@ -308,7 +310,7 @@ function TableNode({
     const names = new Set(cols.map((c) => c.name))
     const used = headers.map((h, i) => ({ h, i })).filter((x) => names.has(x.h))
     if (!used.length) {
-      window.alert('Nenhum cabeçalho do CSV corresponde às colunas da tabela.')
+      toast('Nenhum cabeçalho do CSV corresponde às colunas da tabela.', 'error')
       return
     }
     const qi = (id: string): string =>
@@ -327,9 +329,9 @@ function TableNode({
     })
     try {
       await api.db.execBatch(connId, statements)
-      window.alert(`Importadas ${statements.length} linha(s) em ${qualified}.`)
+      toast(`Importadas ${statements.length} linha(s) em ${qualified}.`, 'success')
     } catch (e) {
-      window.alert('Erro ao importar: ' + (e instanceof Error ? e.message : String(e)))
+      toast('Erro ao importar: ' + (e instanceof Error ? e.message : String(e)), 'error')
     }
   }
 

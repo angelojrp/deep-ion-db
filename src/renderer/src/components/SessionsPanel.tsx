@@ -1,6 +1,7 @@
 import { type JSX, useCallback, useEffect, useState } from 'react'
 import type { SessionInfo } from '@shared/types'
 import { useApi } from '../api'
+import { useConfirm } from '../ui'
 
 interface Props {
   connectionId: string
@@ -12,6 +13,7 @@ export default function SessionsPanel({ connectionId, onClose }: Props): JSX.Ele
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const api = useApi()
+  const confirm = useConfirm()
 
   const load = useCallback(() => {
     setLoading(true)
@@ -28,7 +30,13 @@ export default function SessionsPanel({ connectionId, onClose }: Props): JSX.Ele
   }, [load])
 
   async function kill(pid: string | number): Promise<void> {
-    if (!window.confirm(`Encerrar a sessão ${pid}?`)) return
+    const ok = await confirm({
+      title: 'Encerrar sessão',
+      message: `Encerrar a sessão ${pid}?`,
+      confirmLabel: 'Encerrar',
+      danger: true
+    })
+    if (!ok) return
     try {
       await api.db.killSession(connectionId, pid)
       load()
