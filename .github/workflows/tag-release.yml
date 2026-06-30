@@ -1,0 +1,52 @@
+name: Tag Release
+
+# Quando um PR de release (`release/*`) é MERGEADO em `main`, cria a tag
+# `vX.Y.Z` correspondente à versão do package.json — o que dispara o
+# `release.yml` (build/publish dos instaladores). Fecha a lacuna do fluxo
+# iniciado pelo `version-bump.yml`. Ver issue #210.
+#
+# IMPORTANTE: a tag é empurrada com `RELEASE_PAT` para que o `release.yml`
+# (gatilho em push de tag `v*`) seja disparado — uma tag empurrada pelo
+# GITHUB_TOKEN padrão NÃO dispara outros workflows.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    # Só roda em PRs realmente mergeados e originados de uma branch release/*.
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main (commit do merge)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Lê versão do package.json
+        id: ver
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Versão a taggear: ${VERSION}"
+
+      - name: Cria e empurra a tag (se ainda não existir)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          if git ls-remote --tags origin "refs/tags/${VERSION}" | grep -q "${VERSION}"; then
+            echo "::notice::Tag ${VERSION} já existe — nada a fazer."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${VERSION}" -m "Deep Ion DB ${VERSION}"
+          git push origin "${VERSION}"
+          echo "::notice::Tag ${VERSION} criada — release.yml será disparado."
